@@ -78,8 +78,6 @@
       const r = canvas.getBoundingClientRect();
       gc.handleClick(e.clientX - r.left, e.clientY - r.top);
     });
-
-    window.addEventListener('resize', () => gc.hexCanvas._computeLayout());
   </script>
 </body>
 </html>

@@ -45,7 +45,6 @@ class GameController {
     }
     this.hexCanvas.render(this);
     if (this.phase !== 'gameover') requestAnimationFrame(this._loop);
-    else this.hexCanvas.render(this);
   }
 
   _scheduleAI() {
