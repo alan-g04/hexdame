@@ -17,6 +17,7 @@ class GameController {
     this.phase = 'menu';
     this._onGameOver = null;
     this._onTurnChange = null;
+    this._loopRunning = false;
     this.anim = new AnimationManager();
     this._loop = this._loop.bind(this);
     window.addEventListener('resize', () => this._recomputeAnimTargets());
@@ -37,7 +38,10 @@ class GameController {
     this._aiPending = false;
     this.phase = 'setup';
     this.anim.initTileFall(this.board, this.hexCanvas.hexRadius, this.hexCanvas.cx, this.hexCanvas.cy);
-    requestAnimationFrame(this._loop);
+    if (!this._loopRunning) {
+      this._loopRunning = true;
+      requestAnimationFrame(this._loop);
+    }
   }
 
   _loop() {
@@ -61,7 +65,11 @@ class GameController {
       }
     }
     this.hexCanvas.renderWithAnim(this, this.anim);
-    if (this.phase !== 'gameover') requestAnimationFrame(this._loop);
+    if (this.phase !== 'gameover') {
+      requestAnimationFrame(this._loop);
+    } else {
+      this._loopRunning = false;
+    }
   }
 
   _scheduleAI() {
@@ -226,15 +234,19 @@ GameController.prototype.startOnlineGame = function(slot, socketClient) {
   this._aiPending = false;
   this.phase = 'setup';
   this.anim.initTileFall(this.board, this.hexCanvas.hexRadius, this.hexCanvas.cx, this.hexCanvas.cy);
-  requestAnimationFrame(this._loop);
+  if (!this._loopRunning) {
+    this._loopRunning = true;
+    requestAnimationFrame(this._loop);
+  }
 };
 
 GameController.prototype.handleServerState = function(state) {
-  if (!this.board) return;
+  if (!this.board || this.phase === 'setup' || this.phase === 'pieces') return;
   this.board.pieces.clear();
   for (const { key, color, isKing, q, r } of state.board) {
     this.board.pieces.set(key, { q, r, color, isKing });
   }
+  this.anim.syncBoard(this.board, this.hexCanvas.hexRadius, this.hexCanvas.cx, this.hexCanvas.cy);
   this.currentTurn = state.turn;
   this.mustJump = state.mustJump;
   this.capturedByP1 = state.capturedByP1;
@@ -245,7 +257,8 @@ GameController.prototype.handleServerState = function(state) {
     if (this._onGameOver) this._onGameOver(state.winner);
     return;
   }
-  const { allMoves, mustJump } = this.logic.getAllPlayerMoves(this.currentTurn);
+  const { allMoves } = this.logic.getAllPlayerMoves(this.currentTurn);
   this.allPlayerMoves = allMoves;
-  if (this._onTurnChange) this._onTurnChange(this.currentTurn, mustJump, 'online');
+  this.mustJump = state.mustJump;
+  if (this._onTurnChange) this._onTurnChange(this.currentTurn, state.mustJump, 'online');
 };

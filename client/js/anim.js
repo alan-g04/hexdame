@@ -152,6 +152,19 @@ class AnimationManager {
     this.pieceAnims.set(`${toQ},${toR}`, oldAnim);
   }
 
+  syncBoard(board, hexRadius, cx, cy) {
+    const keysToRemove = [];
+    for (const key of this.pieceAnims.keys()) {
+      if (!key.startsWith('cap-')) keysToRemove.push(key);
+    }
+    for (const key of keysToRemove) this.pieceAnims.delete(key);
+    for (const p of board.pieces.values()) {
+      const [tx, ty] = hexToPixel(p.q, p.r, hexRadius, cx, cy);
+      const anim = new PieceAnim(p, tx, ty);
+      this.pieceAnims.set(`${p.q},${p.r}`, anim);
+    }
+  }
+
   onPieceCapture(capturedPiece, targetX, targetY) {
     const key = `${capturedPiece.q},${capturedPiece.r}`;
     const anim = this.pieceAnims.get(key);
