@@ -8,6 +8,7 @@
 </head>
 <body>
   <canvas id="gameCanvas"></canvas>
+
   <div id="ui-overlay" class="active">
     <div id="menu-screen" class="menu-panel">
       <h1>HEXDAME</h1>
@@ -21,31 +22,64 @@
       <button class="btn" id="btn-menu">MAIN MENU</button>
     </div>
   </div>
+
   <div class="turn-indicator hidden" id="turn-indicator"></div>
 
   <script src="js/hex.js"></script>
+  <script src="js/board.js"></script>
+  <script src="js/logic.js"></script>
+  <script src="js/ai.js"></script>
+  <script src="js/canvas.js"></script>
+  <script src="js/game.js"></script>
   <script>
     const canvas = document.getElementById('gameCanvas');
-    const ctx = canvas.getContext('2d');
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-    const cx = canvas.width / 2, cy = canvas.height / 2;
-    const n = BOARD_SIDE_LENGTH;
-    const radius = Math.floor(Math.min(canvas.width * 0.82 / ((2*n-1)*1.5), canvas.height * 0.82 / ((2*n-1)*Math.sqrt(3))));
-    ctx.fillStyle = '#0f0f1a';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    for (const [q, r] of generateGrid(n)) {
-      const corners = getHexCorners(q, r, radius, cx, cy);
-      ctx.beginPath();
-      ctx.moveTo(corners[0][0], corners[0][1]);
-      for (let i = 1; i < 6; i++) ctx.lineTo(corners[i][0], corners[i][1]);
-      ctx.closePath();
-      ctx.fillStyle = (q + r) % 2 === 0 ? '#4a4a6a' : '#2d2d4a';
-      ctx.fill();
-      ctx.strokeStyle = '#7a7a9a';
-      ctx.lineWidth = 1;
-      ctx.stroke();
+    const overlay = document.getElementById('ui-overlay');
+    const menuScreen = document.getElementById('menu-screen');
+    const gameOverScreen = document.getElementById('game-over-screen');
+    const winnerText = document.getElementById('winner-text');
+    const turnIndicator = document.getElementById('turn-indicator');
+
+    const gc = new GameController(canvas);
+
+    gc._onGameOver = (winner) => {
+      turnIndicator.classList.add('hidden');
+      winnerText.textContent = winner === PLAYER1
+        ? (gc.gameMode === 'local' ? 'PLAYER 1 WINS' : 'YOU WIN!')
+        : (gc.gameMode === 'local' ? 'PLAYER 2 WINS' : 'COMPUTER WINS');
+      gameOverScreen.classList.remove('hidden');
+      overlay.classList.add('active');
+    };
+
+    gc._onTurnChange = (turn, mustJump, mode) => {
+      let txt = turn === PLAYER1
+        ? (mode === 'local' ? "PLAYER 1'S TURN" : "YOUR TURN")
+        : (mode === 'local' ? "PLAYER 2'S TURN" : "COMPUTER'S TURN");
+      if (mustJump) txt += ' — MUST JUMP';
+      turnIndicator.textContent = txt;
+      turnIndicator.classList.remove('hidden');
+    };
+
+    function startGame(mode) {
+      overlay.classList.remove('active');
+      menuScreen.classList.add('hidden');
+      gameOverScreen.classList.add('hidden');
+      gc.startGame(mode);
     }
+
+    document.getElementById('btn-local').addEventListener('click', () => startGame('local'));
+    document.getElementById('btn-ai').addEventListener('click',    () => startGame('ai'));
+    document.getElementById('btn-menu').addEventListener('click',  () => {
+      gameOverScreen.classList.add('hidden');
+      menuScreen.classList.remove('hidden');
+      overlay.classList.add('active');
+    });
+
+    canvas.addEventListener('click', (e) => {
+      const r = canvas.getBoundingClientRect();
+      gc.handleClick(e.clientX - r.left, e.clientY - r.top);
+    });
+
+    window.addEventListener('resize', () => gc.hexCanvas._computeLayout());
   </script>
 </body>
 </html>
