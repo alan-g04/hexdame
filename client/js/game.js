@@ -17,6 +17,7 @@ class GameController {
     this.phase = 'menu';
     this._onGameOver = null;
     this._onTurnChange = null;
+    this.anim = new AnimationManager();
     this._loop = this._loop.bind(this);
   }
 
@@ -33,17 +34,32 @@ class GameController {
     this.winner = null;
     this.isMultiJumping = false;
     this._aiPending = false;
-    this.phase = 'playing';
-    this._calcMoves();
-    this._notifyTurn();
+    this.phase = 'setup';
+    this.anim.initTileFall(this.board, this.hexCanvas.hexRadius, this.hexCanvas.cx, this.hexCanvas.cy);
     requestAnimationFrame(this._loop);
   }
 
   _loop() {
-    if (this.phase === 'playing' && this.gameMode === 'ai' && this.currentTurn === PLAYER2 && !this._aiPending) {
-      this._scheduleAI();
+    if (this.phase === 'setup') {
+      const still = this.anim.updateTiles();
+      if (!still) {
+        this.anim.initPieceFall(this.board, this.hexCanvas.hexRadius, this.hexCanvas.cx, this.hexCanvas.cy);
+        this.phase = 'pieces';
+      }
+    } else if (this.phase === 'pieces') {
+      const still = this.anim.updatePieces();
+      if (!still) {
+        this.phase = 'playing';
+        this._calcMoves();
+        this._notifyTurn();
+      }
+    } else if (this.phase === 'playing') {
+      this.anim.updatePlay();
+      if (this.gameMode === 'ai' && this.currentTurn === PLAYER2 && !this._aiPending && !this.anim.isAnimating()) {
+        this._scheduleAI();
+      }
     }
-    this.hexCanvas.render(this);
+    this.hexCanvas.renderWithAnim(this, this.anim);
     if (this.phase !== 'gameover') requestAnimationFrame(this._loop);
   }
 
@@ -66,7 +82,7 @@ class GameController {
   }
 
   handleClick(px, py) {
-    if (this.phase !== 'playing') return;
+    if (this.phase !== 'playing' || this.anim.isAnimating()) return;
     const human = this.gameMode === 'local' || (this.gameMode === 'ai' && this.currentTurn === PLAYER1);
     if (!human || this._aiPending) return;
 
@@ -101,9 +117,16 @@ class GameController {
 
   _executeMove(fq, fr, tq, tr, jumpedCoord) {
     const piece = this.board.movePiece(fq, fr, tq, tr);
+    this.anim.onPieceMove(piece, fq, fr, tq, tr, this.hexCanvas.hexRadius, this.hexCanvas.cx, this.hexCanvas.cy);
+
     if (jumpedCoord) {
       const cap = this.board.removePiece(jumpedCoord[0], jumpedCoord[1]);
-      if (cap) (this.currentTurn === PLAYER1 ? this.capturedByP1 : this.capturedByP2).push(cap);
+      if (cap) {
+        const capList = this.currentTurn === PLAYER1 ? this.capturedByP1 : this.capturedByP2;
+        capList.push(cap);
+        const { tx, ty } = this._captureTarget(capList.length - 1, this.currentTurn);
+        this.anim.onPieceCapture(cap, tx, ty);
+      }
     }
     this.logic.checkForPromotion(piece);
 
@@ -126,6 +149,21 @@ class GameController {
     if (w) { this.winner = w; this.phase = 'gameover'; if (this._onGameOver) this._onGameOver(w); return; }
 
     this._switchTurn();
+  }
+
+  _captureTarget(index, capturingPlayer) {
+    const pr = Math.floor(this.hexCanvas.pieceRadius);
+    const vSpacing = pr * 2.4;
+    const hSpacing = pr * 2.6;
+    const margin = pr * 2.5;
+    const col = Math.floor(index / 6);
+    const row = index % 6;
+    const ty = margin + row * vSpacing;
+    if (capturingPlayer === PLAYER1) {
+      return { tx: margin + col * hSpacing, ty };
+    } else {
+      return { tx: this.hexCanvas.canvas.width - margin - col * hSpacing, ty };
+    }
   }
 
   _switchTurn() {

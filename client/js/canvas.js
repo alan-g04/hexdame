@@ -103,3 +103,40 @@ class HexCanvas {
     return pixelToHex(px, py, this.hexRadius, this.cx, this.cy);
   }
 }
+
+HexCanvas.prototype.renderWithAnim = function(gs, anim) {
+  const ctx = this.ctx;
+  ctx.fillStyle = '#0f0f1a';
+  ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+  if (anim.phase === 'tiles') {
+    this._drawTilesAnim(anim);
+  } else {
+    if (gs.board) this._drawBoard(gs.board);
+    this._drawHighlights(gs.selectedCoord, gs.possibleMoves);
+    this._drawPiecesAnim(anim);
+  }
+};
+
+HexCanvas.prototype._drawTilesAnim = function(anim) {
+  for (const t of anim.tileAnims) {
+    const fill = (t.q + t.r) % 2 === 0 ? '#4a4a6a' : '#2d2d4a';
+    const corners = [];
+    for (let i = 0; i < 6; i++) {
+      const angle = Math.PI / 180 * 60 * i;
+      corners.push([t.x + this.hexRadius * Math.cos(angle), t.currentY + this.hexRadius * Math.sin(angle)]);
+    }
+    this.ctx.beginPath();
+    this.ctx.moveTo(corners[0][0], corners[0][1]);
+    for (let i = 1; i < 6; i++) this.ctx.lineTo(corners[i][0], corners[i][1]);
+    this.ctx.closePath();
+    this.ctx.fillStyle = fill; this.ctx.fill();
+    this.ctx.strokeStyle = '#7a7a9a'; this.ctx.lineWidth = 1; this.ctx.stroke();
+  }
+};
+
+HexCanvas.prototype._drawPiecesAnim = function(anim) {
+  for (const pa of anim.pieceAnims.values()) {
+    this._drawPieceAt(pa.pixelX, pa.pixelY, pa.piece.color, pa.piece.isKing);
+  }
+};
