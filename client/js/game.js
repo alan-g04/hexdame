@@ -99,7 +99,12 @@ class GameController {
         const selPiece = this.board.getPiece(this.selectedCoord[0], this.selectedCoord[1]);
         const { valid, jumpedCoord } = this.logic.isMoveValid(selPiece, q, r, this.allPlayerMoves, this.mustJump);
         if (valid) {
-          this._executeMove(this.selectedCoord[0], this.selectedCoord[1], q, r, jumpedCoord);
+          if (this.gameMode === 'online' && this.socketClient) {
+            this.socketClient.sendMove(this.selectedCoord, [q, r]);
+            this._clearSelection();
+          } else {
+            this._executeMove(this.selectedCoord[0], this.selectedCoord[1], q, r, jumpedCoord);
+          }
           return;
         }
       }
@@ -203,3 +208,44 @@ class GameController {
     }
   }
 }
+
+GameController.prototype.startOnlineGame = function(slot, socketClient) {
+  this.gameMode = 'online';
+  this.playerSlot = slot;
+  this.socketClient = socketClient;
+  this.board = new Board(BOARD_SIDE_LENGTH);
+  this.logic = new GameLogic(this.board);
+  this.board.initializePieces();
+  this.currentTurn = PLAYER1;
+  this.selectedCoord = null;
+  this.possibleMoves = [];
+  this.capturedByP1 = [];
+  this.capturedByP2 = [];
+  this.winner = null;
+  this.isMultiJumping = false;
+  this._aiPending = false;
+  this.phase = 'setup';
+  this.anim.initTileFall(this.board, this.hexCanvas.hexRadius, this.hexCanvas.cx, this.hexCanvas.cy);
+  requestAnimationFrame(this._loop);
+};
+
+GameController.prototype.handleServerState = function(state) {
+  if (!this.board) return;
+  this.board.pieces.clear();
+  for (const { key, color, isKing, q, r } of state.board) {
+    this.board.pieces.set(key, { q, r, color, isKing });
+  }
+  this.currentTurn = state.turn;
+  this.mustJump = state.mustJump;
+  this.capturedByP1 = state.capturedByP1;
+  this.capturedByP2 = state.capturedByP2;
+  if (state.winner) {
+    this.winner = state.winner;
+    this.phase = 'gameover';
+    if (this._onGameOver) this._onGameOver(state.winner);
+    return;
+  }
+  const { allMoves, mustJump } = this.logic.getAllPlayerMoves(this.currentTurn);
+  this.allPlayerMoves = allMoves;
+  if (this._onTurnChange) this._onTurnChange(this.currentTurn, mustJump, 'online');
+};

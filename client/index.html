@@ -10,21 +10,41 @@
   <canvas id="gameCanvas"></canvas>
 
   <div id="ui-overlay" class="active">
+    <!-- Main Menu -->
     <div id="menu-screen" class="menu-panel">
       <h1>HEXDAME</h1>
       <button class="btn" id="btn-local">LOCAL 2-PLAYER</button>
       <button class="btn" id="btn-ai">VS COMPUTER</button>
-      <button class="btn" id="btn-online" disabled style="opacity:0.4">ONLINE (S5)</button>
+      <button class="btn" id="btn-online">ONLINE</button>
     </div>
+
+    <!-- Online Lobby -->
+    <div id="online-screen" class="menu-panel hidden">
+      <h1>ONLINE</h1>
+      <input id="input-name" class="btn" type="text" placeholder="Your name" maxlength="16"
+             style="text-align:center;cursor:text">
+      <button class="btn" id="btn-create">CREATE ROOM</button>
+      <div style="display:flex;gap:8px;width:100%">
+        <input id="input-code" class="btn" type="text" placeholder="ROOM CODE" maxlength="4"
+               style="flex:1;text-align:center;cursor:text;text-transform:uppercase">
+        <button class="btn" id="btn-join" style="flex:none;width:80px">JOIN</button>
+      </div>
+      <p id="lobby-status" style="font-size:0.8rem;color:#aaaaff;min-height:1.2em"></p>
+      <button class="btn" id="btn-back-lobby">BACK</button>
+    </div>
+
+    <!-- Game Over -->
     <div id="game-over-screen" class="game-over-panel hidden">
       <h2>GAME OVER</h2>
       <p id="winner-text"></p>
+      <button class="btn hidden" id="btn-rematch">REMATCH</button>
       <button class="btn" id="btn-menu">MAIN MENU</button>
     </div>
   </div>
 
   <div class="turn-indicator hidden" id="turn-indicator"></div>
 
+  <script src="/socket.io/socket.io.js"></script>
   <script src="js/hex.js"></script>
   <script src="js/board.js"></script>
   <script src="js/logic.js"></script>
@@ -32,48 +52,94 @@
   <script src="js/canvas.js"></script>
   <script src="js/anim.js"></script>
   <script src="js/game.js"></script>
+  <script src="js/socket-client.js"></script>
   <script>
     const canvas = document.getElementById('gameCanvas');
     const overlay = document.getElementById('ui-overlay');
     const menuScreen = document.getElementById('menu-screen');
+    const onlineScreen = document.getElementById('online-screen');
     const gameOverScreen = document.getElementById('game-over-screen');
     const winnerText = document.getElementById('winner-text');
     const turnIndicator = document.getElementById('turn-indicator');
+    const lobbyStatus = document.getElementById('lobby-status');
 
     const gc = new GameController(canvas);
+    const sc = new SocketClient();
 
     gc._onGameOver = (winner) => {
       turnIndicator.classList.add('hidden');
-      winnerText.textContent = winner === PLAYER1
-        ? (gc.gameMode === 'local' ? 'PLAYER 1 WINS' : 'YOU WIN!')
-        : (gc.gameMode === 'local' ? 'PLAYER 2 WINS' : 'COMPUTER WINS');
+      if (gc.gameMode === 'local')       winnerText.textContent = winner === PLAYER1 ? 'PLAYER 1 WINS' : 'PLAYER 2 WINS';
+      else if (gc.gameMode === 'ai')     winnerText.textContent = winner === PLAYER1 ? 'YOU WIN!' : 'COMPUTER WINS';
+      else if (gc.gameMode === 'online') winnerText.textContent = winner === gc.playerSlot ? 'YOU WIN!' : 'OPPONENT WINS';
+      document.getElementById('btn-rematch').classList.toggle('hidden', gc.gameMode !== 'online');
       gameOverScreen.classList.remove('hidden');
       overlay.classList.add('active');
     };
 
     gc._onTurnChange = (turn, mustJump, mode) => {
-      let txt = turn === PLAYER1
-        ? (mode === 'local' ? "PLAYER 1'S TURN" : "YOUR TURN")
-        : (mode === 'local' ? "PLAYER 2'S TURN" : "COMPUTER'S TURN");
+      let txt = '';
+      if (mode === 'local')       txt = turn === PLAYER1 ? "PLAYER 1'S TURN" : "PLAYER 2'S TURN";
+      else if (mode === 'ai')     txt = turn === PLAYER1 ? "YOUR TURN" : "COMPUTER'S TURN";
+      else if (mode === 'online') txt = turn === gc.playerSlot ? "YOUR TURN" : "OPPONENT'S TURN";
       if (mustJump) txt += ' — MUST JUMP';
       turnIndicator.textContent = txt;
       turnIndicator.classList.remove('hidden');
     };
 
-    function startGame(mode) {
-      overlay.classList.remove('active');
-      menuScreen.classList.add('hidden');
-      gameOverScreen.classList.add('hidden');
-      gc.startGame(mode);
-    }
+    function showMenu()   { menuScreen.classList.remove('hidden'); onlineScreen.classList.add('hidden'); gameOverScreen.classList.add('hidden'); overlay.classList.add('active'); }
+    function hideMenu()   { menuScreen.classList.add('hidden'); overlay.classList.remove('active'); }
+    function showOnline() { menuScreen.classList.add('hidden'); onlineScreen.classList.remove('hidden'); }
 
-    document.getElementById('btn-local').addEventListener('click', () => startGame('local'));
-    document.getElementById('btn-ai').addEventListener('click',    () => startGame('ai'));
-    document.getElementById('btn-menu').addEventListener('click',  () => {
-      gameOverScreen.classList.add('hidden');
-      menuScreen.classList.remove('hidden');
-      overlay.classList.add('active');
+    document.getElementById('btn-local').addEventListener('click', () => { hideMenu(); gc.startGame('local'); });
+    document.getElementById('btn-ai').addEventListener('click',    () => { hideMenu(); gc.startGame('ai'); });
+    document.getElementById('btn-online').addEventListener('click', () => { sc.connect(); showOnline(); });
+    document.getElementById('btn-back-lobby').addEventListener('click', showMenu);
+
+    document.getElementById('btn-create').addEventListener('click', () => {
+      const name = document.getElementById('input-name').value.trim() || 'Player';
+      lobbyStatus.textContent = 'Creating room...';
+      sc.createRoom(name);
     });
+
+    document.getElementById('btn-join').addEventListener('click', () => {
+      const code = document.getElementById('input-code').value.trim().toUpperCase();
+      const name = document.getElementById('input-name').value.trim() || 'Player';
+      if (!code) { lobbyStatus.textContent = 'Enter a room code.'; return; }
+      sc.joinRoom(code, name);
+    });
+
+    sc.onRoomJoined = ({ roomCode, playerSlot }) => {
+      const msg = playerSlot === PLAYER1
+        ? `Room created: ${roomCode} — waiting for opponent...`
+        : `Joined room ${roomCode}`;
+      lobbyStatus.textContent = msg;
+    };
+
+    sc.onGameStart = () => {
+      onlineScreen.classList.add('hidden');
+      overlay.classList.remove('active');
+      gc.startOnlineGame(sc.playerSlot, sc);
+    };
+
+    sc.onStateUpdate = (state) => { gc.handleServerState(state); };
+
+    sc.onOpponentDisconnected = () => {
+      winnerText.textContent = 'OPPONENT DISCONNECTED';
+      document.getElementById('btn-rematch').classList.add('hidden');
+      gameOverScreen.classList.remove('hidden');
+      overlay.classList.add('active');
+    };
+
+    sc.onJoinError = ({ reason }) => { lobbyStatus.textContent = `Error: ${reason}`; };
+    sc.onMoveError = ({ reason }) => { console.warn('Move error:', reason); };
+
+    document.getElementById('btn-rematch').addEventListener('click', () => {
+      gameOverScreen.classList.add('hidden');
+      overlay.classList.remove('active');
+      sc.requestRematch();
+    });
+
+    document.getElementById('btn-menu').addEventListener('click', showMenu);
 
     canvas.addEventListener('click', (e) => {
       const r = canvas.getBoundingClientRect();
