@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hexdame</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <canvas id="gameCanvas"></canvas>
+  <div id="ui-overlay" class="active">
+    <div id="menu-screen" class="menu-panel">
+      <h1>HEXDAME</h1>
+      <button class="btn" id="btn-local">LOCAL 2-PLAYER</button>
+      <button class="btn" id="btn-ai">VS COMPUTER</button>
+      <button class="btn" id="btn-online" disabled style="opacity:0.4">ONLINE (S5)</button>
+    </div>
+    <div id="game-over-screen" class="game-over-panel hidden">
+      <h2>GAME OVER</h2>
+      <p id="winner-text"></p>
+      <button class="btn" id="btn-menu">MAIN MENU</button>
+    </div>
+  </div>
+  <div class="turn-indicator hidden" id="turn-indicator"></div>
+
+  <script src="js/hex.js"></script>
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    const cx = canvas.width / 2, cy = canvas.height / 2;
+    const n = BOARD_SIDE_LENGTH;
+    const radius = Math.floor(Math.min(canvas.width * 0.82 / ((2*n-1)*1.5), canvas.height * 0.82 / ((2*n-1)*Math.sqrt(3))));
+    ctx.fillStyle = '#0f0f1a';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    for (const [q, r] of generateGrid(n)) {
+      const corners = getHexCorners(q, r, radius, cx, cy);
+      ctx.beginPath();
+      ctx.moveTo(corners[0][0], corners[0][1]);
+      for (let i = 1; i < 6; i++) ctx.lineTo(corners[i][0], corners[i][1]);
+      ctx.closePath();
+      ctx.fillStyle = (q + r) % 2 === 0 ? '#4a4a6a' : '#2d2d4a';
+      ctx.fill();
+      ctx.strokeStyle = '#7a7a9a';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+  </script>
+</body>
+</html>
