@@ -100,6 +100,7 @@ class RoomManager {
 
     if (!Object.keys(allMoves).length) {
       gs.winner = gs.turn === PLAYER1 ? PLAYER2 : PLAYER1;
+      return { ok: true, state: serializeState(gs) };
     }
 
     return { ok: true, state: serializeState(gs) };
