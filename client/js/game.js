@@ -19,6 +19,7 @@ class GameController {
     this._onTurnChange = null;
     this.anim = new AnimationManager();
     this._loop = this._loop.bind(this);
+    window.addEventListener('resize', () => this._recomputeAnimTargets());
   }
 
   startGame(mode) {
@@ -186,4 +187,19 @@ class GameController {
 
   _clearSelection() { this.selectedCoord = null; this.possibleMoves = []; }
   _notifyTurn() { if (this._onTurnChange) this._onTurnChange(this.currentTurn, this.mustJump, this.gameMode); }
+
+  _recomputeAnimTargets() {
+    if (!this.board || this.anim.phase === 'tiles' || this.anim.phase === 'pieces') return;
+    for (const [key, pa] of this.anim.pieceAnims) {
+      if (!key.startsWith('cap-') && pa.piece) {
+        const [tx, ty] = hexToPixel(pa.piece.q, pa.piece.r, this.hexCanvas.hexRadius, this.hexCanvas.cx, this.hexCanvas.cy);
+        if (pa.isSliding) {
+          pa.targetX = tx; pa.targetY = ty;
+        } else {
+          pa.pixelX = tx; pa.pixelY = ty;
+          pa.targetX = tx; pa.targetY = ty;
+        }
+      }
+    }
+  }
 }

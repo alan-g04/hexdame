@@ -97,10 +97,10 @@ class AnimationManager {
     const MAX_ACTIVE = 7;
     let activeFalling = 0;
     for (const t of this.tileAnims) { if (t.active && !t.done) activeFalling++; }
-    for (let i = 0; i < this.tileAnims.length; i++) {
-      if (!this.tileAnims[i].active && activeFalling < MAX_ACTIVE) {
-        this.tileAnims[i].active = true; activeFalling++;
-      }
+    while (this._tileIndex < this.tileAnims.length && activeFalling < MAX_ACTIVE) {
+      this.tileAnims[this._tileIndex].active = true;
+      activeFalling++;
+      this._tileIndex++;
     }
     let anyActive = false;
     for (const t of this.tileAnims) { if (!t.done) { t.update(); anyActive = true; } }
