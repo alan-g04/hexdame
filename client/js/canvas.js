@@ -115,6 +115,7 @@ HexCanvas.prototype.renderWithAnim = function(gs, anim) {
     if (gs.board) this._drawBoard(gs.board);
     this._drawHighlights(gs.selectedCoord, gs.possibleMoves);
     this._drawPiecesAnim(anim);
+    this.drawCaptured(anim);
   }
 };
 
@@ -136,7 +137,17 @@ HexCanvas.prototype._drawTilesAnim = function(anim) {
 };
 
 HexCanvas.prototype._drawPiecesAnim = function(anim) {
-  for (const pa of anim.pieceAnims.values()) {
-    this._drawPieceAt(pa.pixelX, pa.pixelY, pa.piece.color, pa.piece.isKing);
+  for (const [key, pa] of anim.pieceAnims) {
+    if (!key.startsWith('cap-')) {
+      this._drawPieceAt(pa.pixelX, pa.pixelY, pa.piece.color, pa.piece.isKing);
+    }
+  }
+};
+
+HexCanvas.prototype.drawCaptured = function(anim) {
+  for (const [key, pa] of anim.pieceAnims) {
+    if (key.startsWith('cap-')) {
+      this._drawPieceAt(pa.pixelX, pa.pixelY, pa.piece.color, pa.piece.isKing);
+    }
   }
 };
