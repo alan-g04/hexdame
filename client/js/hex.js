@@ -1,8 +1,8 @@
 const BOARD_SIDE_LENGTH = 5;
 const PLAYER1 = 1;
 const PLAYER2 = 2;
-const FALL_SPEED_TILE = 4;
-const FALL_SPEED_PIECE = 3;
+const FALL_SPEED_TILE = 15;
+const FALL_SPEED_PIECE = 12;
 const SLIDE_SPEED = 12;
 const AI_DELAY_MS = 750;
 

@@ -45,7 +45,7 @@ class PieceAnim {
 class TileAnim {
   constructor(q, r, targetX, targetY) {
     this.q = q; this.r = r;
-    this.currentY = targetY - window.innerHeight * 0.9;
+    this.currentY = -80;
     this.targetY = targetY;
     this.x = targetX;
     this.done = false;
@@ -86,7 +86,7 @@ class AnimationManager {
     this.pieceAnims.clear();
     for (const p of board.pieces.values()) {
       const [tx, ty] = hexToPixel(p.q, p.r, hexRadius, cx, cy);
-      const anim = new PieceAnim(p, tx, ty - window.innerHeight);
+      const anim = new PieceAnim(p, tx, -60);
       anim.targetX = tx; anim.targetY = ty;
       anim.isFalling = p.color === PLAYER1;
       this.pieceAnims.set(`${p.q},${p.r}`, anim);
@@ -94,13 +94,8 @@ class AnimationManager {
   }
 
   updateTiles() {
-    const MAX_ACTIVE = 7;
-    let activeFalling = 0;
-    for (const t of this.tileAnims) { if (t.active && !t.done) activeFalling++; }
-    while (this._tileIndex < this.tileAnims.length && activeFalling < MAX_ACTIVE) {
-      this.tileAnims[this._tileIndex].active = true;
-      activeFalling++;
-      this._tileIndex++;
+    for (let i = 0; i < 2 && this._tileIndex < this.tileAnims.length; i++) {
+      this.tileAnims[this._tileIndex++].active = true;
     }
     let anyActive = false;
     for (const t of this.tileAnims) { if (!t.done) { t.update(); anyActive = true; } }

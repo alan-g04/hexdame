@@ -18,6 +18,7 @@ class GameController {
     this._onGameOver = null;
     this._onTurnChange = null;
     this._loopRunning = false;
+    this._pendingGameOver = null;
     this.anim = new AnimationManager();
     this._loop = this._loop.bind(this);
     window.addEventListener('resize', () => this._recomputeAnimTargets());
@@ -36,6 +37,7 @@ class GameController {
     this.winner = null;
     this.isMultiJumping = false;
     this._aiPending = false;
+    this._pendingGameOver = null;
     this.phase = 'setup';
     this.anim.initTileFall(this.board, this.hexCanvas.hexRadius, this.hexCanvas.cx, this.hexCanvas.cy);
     if (!this._loopRunning) {
@@ -60,7 +62,10 @@ class GameController {
       }
     } else if (this.phase === 'playing') {
       this.anim.updatePlay();
-      if (this.gameMode === 'ai' && this.currentTurn === PLAYER2 && !this._aiPending && !this.anim.isAnimating()) {
+      if (this._pendingGameOver && !this.anim.isAnimating()) {
+        this.phase = 'gameover';
+        if (this._onGameOver) this._onGameOver(this._pendingGameOver);
+      } else if (!this._pendingGameOver && this.gameMode === 'ai' && this.currentTurn === PLAYER2 && !this._aiPending && !this.anim.isAnimating()) {
         this._scheduleAI();
       }
     }
@@ -91,7 +96,7 @@ class GameController {
   }
 
   handleClick(px, py) {
-    if (this.phase !== 'playing' || this.anim.isAnimating()) return;
+    if (this.phase !== 'playing' || this.anim.isAnimating() || this._pendingGameOver) return;
     const human = this.gameMode === 'local' || (this.gameMode === 'ai' && this.currentTurn === PLAYER1);
     if (!human || this._aiPending) return;
 
@@ -160,7 +165,7 @@ class GameController {
     this._clearSelection();
 
     const w = this.logic.checkGameOver(this.currentTurn);
-    if (w) { this.winner = w; this.phase = 'gameover'; if (this._onGameOver) this._onGameOver(w); return; }
+    if (w) { this.winner = w; this._pendingGameOver = w; return; }
 
     this._switchTurn();
   }
@@ -232,6 +237,7 @@ GameController.prototype.startOnlineGame = function(slot, socketClient) {
   this.winner = null;
   this.isMultiJumping = false;
   this._aiPending = false;
+  this._pendingGameOver = null;
   this.phase = 'setup';
   this.anim.initTileFall(this.board, this.hexCanvas.hexRadius, this.hexCanvas.cx, this.hexCanvas.cy);
   if (!this._loopRunning) {
