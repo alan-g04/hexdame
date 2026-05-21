@@ -108,7 +108,7 @@ class GameController {
     }
     this.logic.checkForPromotion(piece);
 
-    if (jumpedCoord && !piece.isKing) {
+    if (jumpedCoord) {
       const { jumps } = this.logic.getValidMoves(piece);
       if (jumps.length) {
         this.isMultiJumping = true;
