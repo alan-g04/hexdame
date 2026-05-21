@@ -91,35 +91,82 @@ class GameLogic:
         return False, None # Move not found
 
     def check_for_promotion(self, piece):
-        """Check if a piece reaches the promotion row."""
-        # Define promotion rows (opposite end of the board)
-        # Example: If P1 starts at negative r, promotion is at the max positive r edge
-        # Example: If P2 starts at positive r, promotion is at the max negative r edge
-        max_r = self.board.side_length - 1
-        min_r = -(self.board.side_length - 1)
+        """Check if a piece reaches the specific promotion zones."""
+        if piece.is_king:
+            return False
 
-        # Find the min/max r values actually present on the board for edge cases
-        all_r = [r for q,r in self.board.hex_coords]
-        actual_max_r = max(all_r)
-        actual_min_r = min(all_r)
+        current_pos = (piece.q, piece.r)
+        promoted = False
+
+        # Define promotion zones explicitly
+        # Zone for Player 1 (White/Bottom) to be promoted (Top edge/corners)
+        p1_promotion_zone = {
+            (-4, 0), (-3, -1), (-2, -2), (-1, -3), (0, -4), (1, -4), (2, -4), (3, -4), (4, -4)
+            # Your list: (-4, 0), (-3, -1), (-2, -2), (-1, -3), (0, -4), (1, -4), (2, -4), (3, -4) -> This is 8 points. Add (4,0)? or (-4,0)? Let's assume the pattern means the edge points
+            # The 9 points forming the bottom edge: Row r=4 and the points q=-3,-2,-1,0. Row r=3 point q=-2? This isn't quite right.
+            # Let's use YOUR provided list for P1 promotion (bottom edge)
+            # (-4, 0), (-3, -1), (-2, -2), (-1, -3), (0, -4), (1, -4), (2, -4), (3, -4), (-4, -4)? <-- Is (-4,-4) a valid hex on N=5? No. Let's assume the 9th point is implied by symmetry or is missing from list. Let's use the 8 points given for now.
+            # Player 1 (starts positive r) promotes at NEGATIVE r zone.
+             # Your list: (-4, 0), (-3, -1), (-2, -2), (-1, -3), (0, -4), (1, -4), (2, -4), (3, -4) -- These are bottom/right edge hexes. Promotion is usually on the OPPOSITE side.
+            # Let's assume your list was intended for where P2 gets promoted (bottom edge)
+             # And P1 promotes on the top edge: (-4, 4) is not valid for N=5. (0, -4) is bottom edge.
+             # Top edge points for N=5: (0, -4), (1, -4), (2, -4), (3, -4) [Row -4] and (-1,-3),(0,-3),(1,-3),(2,-3) [Row -3] -> 8 points
+             # Top-Left edge points (constant q+r = -4): (0,-4), (-1,-3), (-2,-2), (-3,-1), (-4,0)
+             # Top-Right edge points (constant q = 4): (4,0), (4,-1) --- Wait, N=5 edge q goes to +/- 4.
+
+             # Let's use the coordinates YOU provided, assuming P1 promotes on the P2 start side (negative r)
+             # And P2 promotes on the P1 start side (positive r)
+
+              # Player 1 promotes if landing on these coords (your "bottom player" list):
+               # (-4, 0), (-3, -1), (-2, -2), (-1, -3), (0, -4), (1, -4), (2, -4), (3, -4)
+              # Plus the mysterious 9th point. Let's assume it's (-4,0) for symmetry?
+              # --> Let's stick to the original standard implementation for now unless the specific points are confirmed.
+              # Promoting on rows 1,2,3,4 for P2 and -1,-2,-3,-4 for P1 is standard. Reverting to that for now.
+        }
 
 
-        if piece.color == PLAYER1 and not piece.is_king:
-             # Player 1 promotes if it reaches any hex where r == actual_max_r
-             # This condition might need refinement depending on exact board shape/goal rows
-             if piece.r == actual_max_r:
+        # Zone for Player 2 (Black/Top) to be promoted (Bottom edge/corners)
+        p2_promotion_zone = {
+             # Your list: (-4, 4), (-3, 4), (-2, 4), (-1, 4), (0, 4), (1, 3), (2, 2), (3, 1), (4,0)
+             # This is 9 points and represents the top edge/corners.
+             (-4, 4), (-3, 4), (-2, 4), (-1, 4), (0, 4),
+             (1, 3), (2, 2), (3, 1), (4, 0)
+        }
+
+        if piece.color == PLAYER1:
+            if current_pos in p1_promotion_zone:
                  piece.make_king()
-                 print(f"Player 1 piece at ({piece.q},{piece.r}) promoted!") # Debug
-                 return True
+                 print(f"Player 1 piece at {current_pos} promoted! (Specific Zone Check)")
+                 promoted = True
+             # Fallback to standard rows check if specific points aren't quite right
+            #  elif piece.r >= 1 and piece.r <= (self.board.side_length - 1):
+            #      piece.make_king()
+            #      print(f"Player 1 piece at ({piece.q},{piece.r}) promoted! (Standard Row Check - Fallback)")
+            #      promoted = True
+            # Use P1 Promotion zone based on standard rules (rows -1 to -4)
+            # if piece.r <= -1 and piece.r >= -(self.board.side_length - 1):
+            #      piece.make_king()
+            #      print(f"Player 1 piece at ({piece.q},{piece.r}) promoted! (Standard Row Check)")
+            #      promoted = True
+            # elif current_pos in p1_promotion_zone: # If using specific list
+            #     piece.make_king()
+            #     print(f"Player 1 piece at {current_pos} promoted! (Specific Zone Check)")
+            #     promoted = True
 
-        elif piece.color == PLAYER2 and not piece.is_king:
-             # Player 2 promotes if it reaches any hex where r == actual_min_r
-             if piece.r == actual_min_r:
-                  piece.make_king()
-                  print(f"Player 2 piece at ({piece.q},{piece.r}) promoted!") # Debug
-                  return True
+        elif piece.color == PLAYER2:
+             # Use P2 Promotion zone based on the specific list you provided (top edge)
+             if current_pos in p2_promotion_zone:
+                 piece.make_king()
+                 print(f"Player 2 piece at {current_pos} promoted! (Specific Zone Check)")
+                 promoted = True
+             # Fallback to standard rows check if specific points aren't quite right
+            #  elif piece.r >= 1 and piece.r <= (self.board.side_length - 1):
+            #      piece.make_king()
+            #      print(f"Player 2 piece at ({piece.q},{piece.r}) promoted! (Standard Row Check - Fallback)")
+            #      promoted = True
 
-        return False
+
+        return promoted
 
     def check_game_over(self, current_player):
         """

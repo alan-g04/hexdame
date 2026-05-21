@@ -79,7 +79,7 @@ except (pygame.error, FileNotFoundError):
     UI_FONT_PATH = pygame.font.match_font('monospace') # Fallback using a common monospace font as a placeholder
 
 # Animation Speeds
-FALL_SPEED_TILE = 50 # Pixels per frame (adjust for desired speed)
+FALL_SPEED_TILE = 60 # Pixels per frame
 FALL_SPEED_PIECE = 40 # Pixels per frame
 SLIDE_SPEED = 15 # Pixels per frame
 

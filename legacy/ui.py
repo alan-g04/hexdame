@@ -64,22 +64,34 @@ class Dropdown:
 
 
      def handle_event(self, event):
-         """Handles opening, closing, and selecting options."""
-         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-             if self.rect.collidepoint(event.pos):
-                 self.is_open = not self.is_open
-                 return True # Event handled (opened/closed dropdown)
-             elif self.is_open:
-                 for option, opt_rect in self.option_rects:
-                     if opt_rect.collidepoint(event.pos):
-                         self.selected_option = option
-                         self.is_open = False
-                         return True # Event handled (selected option)
-                 # Clicked outside the dropdown while open, close it
-                 self.is_open = False
-                 # Don't return True here, let the main loop process the click elsewhere if needed
-         return False
+        """Handles opening, closing, and selecting options."""
+        clicked_handled = False
+        option_selected = None
 
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            if self.rect.collidepoint(event.pos):
+                self.is_open = not self.is_open
+                clicked_handled = True # Handled the click to toggle
+            elif self.is_open:
+                handled_option_click = False
+                for option, opt_rect in self.option_rects:
+                    if opt_rect.collidepoint(event.pos):
+                        self.selected_option = option
+                        self.is_open = False
+                        option_selected = option # Store selected option
+                        handled_option_click = True
+                        clicked_handled = True # Handled the click on an option
+                        break # Exit loop once option is found
+                if not handled_option_click:
+                    # Clicked outside the dropdown while it was open, so close it
+                    self.is_open = False
+                    # Important: DO NOT set clicked_handled = True here
+                    # Let the main event loop potentially handle this click elsewhere (e.g., deselecting things)
+            # else: click was outside closed dropdown, do nothing here
+
+        # Return True if the dropdown *processed* the click (toggle, select, close by outside click)
+        # Return selected option if one was clicked this frame
+        return clicked_handled, option_selected
 
 # --- Basic Radio Button Group ---
 class RadioButtonGroup:

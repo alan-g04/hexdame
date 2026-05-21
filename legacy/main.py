@@ -57,10 +57,10 @@ class Game:
         self.is_animating_setup = False # Flag for board/piece falling animations
         self.p1_fall_complete = False
         self.p2_fall_initiated = False
+        self.is_multi_jumping = False
 
         self._setup_menu()
         self._setup_options()
-
 
     def _setup_menu(self):
         self.menu_buttons = []
@@ -71,9 +71,20 @@ class Game:
         spacing = 80
 
         # Start Game Button (placeholder action, real action shows dropdown)
-        self.menu_buttons.append(Button(self.screen_width // 2 - button_width // 2, start_y, button_width, button_height, "START GAME", text_size, action=self._toggle_start_dropdown))
+        start_game_button = Button(self.screen_width // 2 - button_width // 2, start_y, button_width, button_height, "START GAME", text_size, action=self._toggle_start_dropdown)
+        self.menu_buttons.append(start_game_button)
+
         # Dropdown for game mode (initially hidden)
-        self.start_game_dropdown = Dropdown(self.screen_width // 2 - button_width // 2, start_y + button_height + 5, button_width, button_height, ["LOCAL", "VS COMPUTER"], text_size)
+        # Position it based on the start_game_button's rect
+        # FIX: Ensure correct options are passed and position is dynamic
+        self.start_game_dropdown = Dropdown(
+            start_game_button.rect.left, # Align with button's left
+            start_game_button.rect.bottom + 5, # Position below the button
+            button_width,
+            button_height,
+            ["LOCAL", "VS COMPUTER"], # Corrected options
+            text_size
+        )
         self.start_game_dropdown.is_open = False # Hide initially
 
         self.menu_buttons.append(Button(self.screen_width // 2 - button_width // 2, start_y + spacing, button_width, button_height, "OPTIONS", text_size, action=lambda: self.change_state(STATE_OPTIONS)))
@@ -81,16 +92,9 @@ class Game:
         self.menu_buttons.append(Button(self.screen_width // 2 - button_width // 2, start_y + 3*spacing, button_width, button_height, "QUIT", text_size, action=self.initiate_quit))
 
     def _toggle_start_dropdown(self):
-         # Find the start button to position dropdown correctly
-         start_button_rect = None
-         for btn in self.menu_buttons:
-             if btn.text == "START GAME":
-                 start_button_rect = btn.rect
-                 break
-         if start_button_rect:
-             self.start_game_dropdown.rect.topleft = (start_button_rect.left, start_button_rect.bottom + 5)
-             self.start_game_dropdown.is_open = not self.start_game_dropdown.is_open
-
+         # This function's sole purpose is now just to toggle visibility
+         # The positioning is handled during creation in _setup_menu
+         self.start_game_dropdown.is_open = not self.start_game_dropdown.is_open
 
     def _setup_options(self):
          self.options_ui = {}
@@ -297,22 +301,32 @@ class Game:
     # --- State-Specific Event Handlers ---
 
     def handle_menu_events(self, event):
-        # Handle dropdown first if open
-        if self.start_game_dropdown.is_open:
-            if self.start_game_dropdown.handle_event(event):
-                 # Check if an option was selected
-                 selected = self.start_game_dropdown.selected_option
-                 if selected == "LOCAL":
-                     self.start_game('LOCAL')
-                 elif selected == "VS COMPUTER":
-                     self.start_game('VS_COMPUTER')
-                 # Don't process other buttons if dropdown handled the click
-                 return
+        # Handle dropdown first if open or if the click is on the main dropdown rect
+        dropdown_handled_click, selected_option = self.start_game_dropdown.handle_event(event)
 
-        # Handle regular buttons
-        for button in self.menu_buttons:
-            if button.handle_event(event):
-                 break # Stop processing buttons if one was clicked
+        if dropdown_handled_click:
+             if selected_option: # An option was actually chosen
+                 print(f"Dropdown option selected: {selected_option}")
+                 if selected_option == "LOCAL":
+                     self.start_game('LOCAL')
+                 elif selected_option == "VS COMPUTER":
+                     self.start_game('VS_COMPUTER')
+                 # If dropdown handled the click (even just opening/closing),
+                 # we might want to prevent other buttons below from processing the SAME click event.
+                 return # Prevent processing other buttons
+
+        # If dropdown didn't handle the click, process regular buttons
+        if not dropdown_handled_click:
+            for button in self.menu_buttons:
+                # Ensure START GAME button doesn't re-trigger dropdown if it was just closed
+                if button.text == "START GAME" and event.type == pygame.MOUSEBUTTONDOWN and button.rect.collidepoint(event.pos):
+                    # The button's own action handles the toggle now, so we might just need to pass
+                    # or ensure the button.handle_event call happens correctly below.
+                    pass # Let the button handle its action
+
+                if button.handle_event(event):
+                     # If a button handled the event (and wasn't the dropdown interaction), break.
+                     break
 
 
     def handle_options_events(self, event):
@@ -342,9 +356,10 @@ class Game:
         if is_human_turn and event.type == pygame.MOUSEBUTTONDOWN and event.button == 1: # Left click
             mouse_pos = event.pos
             clicked_q, clicked_r = self.board.get_hex_under_mouse(mouse_pos)
+            clicked_coord = (clicked_q, clicked_r) # Store coordinate tuple
 
             # Check if the click is on a valid hex on the board
-            if (clicked_q, clicked_r) not in self.board.hex_coords:
+            if clicked_coord not in self.board.hex_coords:
                 self.selected_piece = None # Clicked outside board
                 self.selected_piece_coord = None
                 self.possible_moves = []
@@ -354,45 +369,54 @@ class Game:
 
             # --- Selecting a piece ---
             if clicked_piece and clicked_piece.color == self.current_turn:
-                # Check if this piece is allowed to be selected (due to forced jumps)
-                if self.must_jump and (clicked_q, clicked_r) not in self.all_player_moves:
-                     print("Must move a piece that can jump!") # User feedback
-                     self.selected_piece = None # Cannot select this piece
-                     self.selected_piece_coord = None
-                     self.possible_moves = []
+                # *** FIX START ***
+                # Check if this piece has any moves listed (it might not if it's blocked)
+                # Also check if this piece is allowed to be selected (due to forced jumps)
+                if clicked_coord not in self.all_player_moves:
+                    if self.must_jump:
+                         print("Must move a piece that can jump!") # User feedback
+                    else:
+                         print("This piece has no valid moves.") # User feedback
+                    self.selected_piece = None # Cannot select this piece
+                    self.selected_piece_coord = None
+                    self.possible_moves = []
                 else:
-                     self.selected_piece = clicked_piece
-                     self.selected_piece_coord = (clicked_q, clicked_r)
-                     # Show only jumps if must_jump, otherwise show all moves for this piece
-                     if self.must_jump:
-                          self.possible_moves = [jump[:2] for jump in self.all_player_moves[(clicked_q, clicked_r)].get('jumps', [])]
-                     else:
-                          moves = self.all_player_moves[(clicked_q, clicked_r)].get('moves', [])
-                          jumps = [jump[:2] for jump in self.all_player_moves[(clicked_q, clicked_r)].get('jumps', [])]
-                          self.possible_moves = moves + jumps
-                     # print(f"Selected piece at {self.selected_piece_coord}. Possible moves: {self.possible_moves}") # Debug
+                    # Piece clicked has moves listed, proceed with selection
+                    self.selected_piece = clicked_piece
+                    self.selected_piece_coord = clicked_coord
+                    current_piece_moves = self.all_player_moves[clicked_coord] # Safe to access now
 
+                    # Show only jumps if must_jump, otherwise show all moves for this piece
+                    if self.must_jump:
+                         # If must_jump is True, all_player_moves only contains jumping pieces/moves
+                         self.possible_moves = [jump[:2] for jump in current_piece_moves.get('jumps', [])]
+                    else:
+                         # If not must_jump, combine moves and jumps
+                         moves = current_piece_moves.get('moves', [])
+                         jumps = [jump[:2] for jump in current_piece_moves.get('jumps', [])]
+                         self.possible_moves = moves + jumps
+                    # print(f"Selected piece at {self.selected_piece_coord}. Possible moves: {self.possible_moves}") # Debug
+                # *** FIX END ***
 
             # --- Making a move ---
-            elif self.selected_piece and (clicked_q, clicked_r) in self.possible_moves:
-                 # Double check validity (redundant but safe)
+            elif self.selected_piece and clicked_coord in self.possible_moves:
+                 # Check validity (should be intrinsically valid if in possible_moves)
                  is_valid, jumped_coord = self.logic.is_move_valid(self.selected_piece, clicked_q, clicked_r, self.all_player_moves, self.must_jump)
 
                  if is_valid:
-                      self.execute_move(self.selected_piece_coord, (clicked_q, clicked_r), jumped_coord)
+                      self.execute_move(self.selected_piece_coord, clicked_coord, jumped_coord)
                  else:
-                      # This shouldn't happen if possible_moves is correct
-                      print("Error: Move deemed invalid unexpectedly.")
+                      # This case suggests an internal logic inconsistency if reached
+                      print("Error: Move selected from possible_moves was deemed invalid.")
                       self.selected_piece = None
                       self.selected_piece_coord = None
                       self.possible_moves = []
 
-            # --- Clicking elsewhere ---
+            # --- Clicking elsewhere (empty square or opponent piece) ---
             else:
                  self.selected_piece = None
                  self.selected_piece_coord = None
                  self.possible_moves = []
-
 
     def handle_game_over_events(self, event):
          # Click or Keypress to return to menu
@@ -403,41 +427,94 @@ class Game:
     # --- State-Specific Update Logic ---
 
     def update_playing(self, dt):
-        if self.winner: # If game already ended this turn
+        if self.winner: # If game already ended (checked previously)
              self.change_state(STATE_GAME_OVER)
              return
 
-        # Update piece animations (sliding, captured)
+        was_animating = self.is_animating_move # Store previous state
+        board_animating = False
+        capture_animating = False
+        just_finished_animating = False
+        self.is_animating_move = board_animating or capture_animating
+        just_finished_animating = was_animating and not self.is_animating_move
+
+        # Update animations (sliding, captured)
         if self.board:
-            self.is_animating_move = self.board.update_piece_animations(dt)
-            # Update captured piece animations
+            board_animating = self.board.update_piece_animations(dt)
+            capture_animating = False
             for player_list in self.captured_pieces.values():
                  for piece in player_list:
-                     if piece.is_captured:
+                     if piece.is_captured and piece.capture_target_pos: # Only update if target exists
                          if piece.update_animation(dt):
-                              self.is_animating_move = True
-
+                              capture_animating = True
+            self.is_animating_move = board_animating or capture_animating
+            # FIX: Check if animation JUST finished
+            just_finished_animating = was_animating and not self.is_animating_move
 
         # If an animation is playing, wait for it to finish
         if self.is_animating_move:
             return
 
-        # --- AI Turn Logic ---
-        if self.game_mode == 'VS_COMPUTER' and self.current_turn == COMPUTER and not self.winner:
-            if not self.ai_player.is_thinking:
-                self.ai_player.start_thinking()
+        # FIX: If animation just finished, NOW check for game over and switch turn
+        if just_finished_animating:
+             # FIX: Check the multi-jump flag
+             if not self.is_multi_jumping:
+                 print("Animation finished (NOT multi-jump), checking game over and switching turn...") # Debug
+                 winner = self.logic.check_game_over(self.current_turn)
+                 if winner:
+                     self.winner = winner
+                     self.change_state(STATE_GAME_OVER)
+                 else:
+                     self.switch_turn()
+                 # Since turn logic might switch, return to process next frame cleanly
+                 return
+             else:
+                 # Animation finished, but we are mid-multi-jump.
+                 # If it's the AI's turn, it needs to act NOW.
+                 # If it's the Human's turn, just wait for input.
+                 if self.current_turn == COMPUTER:
+                     # AI needs to calculate next jump immediately
+                     print("AI Mid-Multi-Jump: Calculating next jump...") # Debug
+                     next_jump = self.ai_player.find_next_multi_jump(self.selected_piece) # <-- Need new AI method
+                     if next_jump:
+                         start_q, start_r, end_q, end_r = next_jump
+                         # Find the jumped coord for this specific jump segment
+                         _, jumped_coord = self.logic.is_move_valid(self.selected_piece, end_q, end_r, self.all_player_moves, self.must_jump)
+                         self.execute_move((start_q, start_r), (end_q, end_r), jumped_coord)
+                         # execute_move will handle setting is_multi_jumping if further jumps exist
+                     else:
+                         # AI couldn't find another jump? This shouldn't happen if logic is right.
+                         # End the multi-jump sequence and switch turn.
+                         print("AI Multi-Jump Error: No next jump found. Ending turn.")
+                         self.is_multi_jumping = False
+                         self.switch_turn()
+                     return # Prevent normal AI turn logic below
 
-            ai_move = self.ai_player.get_move() # Returns move after delay, or None
+        # --- Normal AI Turn Logic (Only run if not animating, not just finished anim, AND not AI multi-jump) ---
+        if self.game_mode == 'VS_COMPUTER' and self.current_turn == COMPUTER and not self.winner and not self.is_multi_jumping:
+            if not self.ai_player.is_thinking:
+                print("AI Starting Turn Thinking...") # Debug
+                # Pass the *current* potential moves to the AI when it starts thinking
+                current_moves, current_must_jump = self.logic.get_all_player_moves(self.current_turn)
+                self.ai_player.start_thinking(current_moves, current_must_jump) # Pass available moves
+
+            ai_move = self.ai_player.get_move()
             if ai_move:
+                print(f"AI executing move: {ai_move}") # Debug
                 start_q, start_r, end_q, end_r = ai_move
                 ai_piece = self.board.get_piece(start_q, start_r)
                 if ai_piece:
+                    # Need to recalculate the specific valid moves *for the AI's chosen piece* right before the move
+                    # This is because all_player_moves might be stale if the board changed during AI thinking? Unlikely here.
+                    # Re-check validity just in case
                     is_valid, jumped_coord = self.logic.is_move_valid(ai_piece, end_q, end_r, self.all_player_moves, self.must_jump)
                     if is_valid:
                          self.execute_move((start_q, start_r), (end_q, end_r), jumped_coord)
+                         # NOTE: execute_move now sets is_multi_jumping flag if applicable
+                         # If it became true here, the next frame's update_playing will handle it above.
                     else:
-                         print("AI Error: AI generated invalid move!")
-                         # Handle error: maybe force AI to recalculate or skip turn?
+                         print(f"AI Error: AI generated invalid move! {ai_move} from {self.all_player_moves}") # Debug invalid move
+                         # Attempt to recover: recalculate moves and let AI try again next frame? Or just switch?
                          self.switch_turn() # Simple error handling: skip turn
                 else:
                      print("AI Error: AI chose non-existent piece!")
@@ -449,7 +526,7 @@ class Game:
     # --- Core Game Actions ---
 
     def execute_move(self, start_coord, end_coord, jumped_coord):
-        """Executes the move, handles captures, checks promotion & game over."""
+        """Executes the move, handles captures, checks promotion & game over AFTER animations."""
         print(f"Executing move: {start_coord} -> {end_coord}") # Debug
         moved_piece = self.board.move_piece(start_coord[0], start_coord[1], end_coord[0], end_coord[1])
 
@@ -457,50 +534,45 @@ class Game:
             print("Error: Failed to move piece logically.")
             return # Should not happen
 
+        self.is_animating_move = True # Start animation flag immediately
+
         captured_piece = None
         if jumped_coord:
             captured_piece = self.board.remove_piece(jumped_coord[0], jumped_coord[1])
             if captured_piece:
                 print(f"Captured piece at {jumped_coord}")
-                self.add_captured_piece(captured_piece)
-                captured_piece.is_captured = True # Trigger capture animation
-                self.is_animating_move = True # Ensure animations run
+                self.add_captured_piece(captured_piece) # This triggers capture animation
 
-        # Check for promotion *after* the move is complete
+        # --- Promotion and Multi-Jump Checks (These don't depend on animation visually) ---
         promoted = self.logic.check_for_promotion(moved_piece)
 
-        # --- Check for multi-jump ---
-        # If a jump was made and the piece can jump AGAIN from the new position
+        self.is_multi_jumping = False
+
         can_multi_jump = False
-        if jumped_coord and not promoted: # Kings usually stop multi-jumps in checkers, but depends on ruleset. Assume they do for now.
-             # Temporarily calculate jumps only for the piece that just moved
+        if jumped_coord and not promoted:
              piece_jumps = self.logic.get_valid_moves(moved_piece)['jumps']
              if piece_jumps:
                   can_multi_jump = True
+                  self.is_multi_jumping = True
                   print("Multi-jump available!")
-                  # Force the current player to continue jumping with this piece
                   self.all_player_moves = {end_coord: {'moves': [], 'jumps': piece_jumps}}
                   self.must_jump = True
-                  # Re-select the piece at its new location
                   self.selected_piece = moved_piece
                   self.selected_piece_coord = end_coord
                   self.possible_moves = [jump[:2] for jump in piece_jumps]
-                  # Do NOT switch turn yet
-                  return # Exit execute_move, wait for next player input/AI move
+                  # Do NOT switch turn or check game over yet
+                  # The animation flag (is_animating_move) is already set,
+                  # the game loop will handle waiting.
+                  return
 
-
-        # If no multi-jump, proceed to end the turn
+        # --- Defer Game Over Check and Turn Switch ---
+        # If no multi-jump, clear selection, but DO NOT check game over or switch turn yet.
+        # This will happen in update_playing AFTER animations complete.
         self.selected_piece = None
         self.selected_piece_coord = None
         self.possible_moves = []
 
-        # Check for game over BEFORE switching turns
-        winner = self.logic.check_game_over(self.current_turn)
-        if winner:
-            self.winner = winner
-            self.change_state(STATE_GAME_OVER)
-        else:
-            self.switch_turn()
+        # The actual check_game_over and switch_turn will now happen in update_playing
 
 
     def switch_turn(self):
@@ -526,25 +598,66 @@ class Game:
          # print(f"All moves: {self.all_player_moves}") # Debug
 
     def add_captured_piece(self, piece):
-        """Adds a captured piece to the correct list and sets its target animation pos."""
-        capture_area_y = 50
-        capture_spacing = int(piece.radius * 2.5)
-        capture_x = 0
+        """Adds captured piece to list and sets target pos, stacking in 3 columns of 6."""
+        MAX_PER_COLUMN = 6
+        NUM_COLUMNS = 3
 
-        capturing_player = PLAYER2 if piece.color == PLAYER1 else PLAYER1 # The player who DID the capture
+        # Determine Margins and Spacing
+        piece_diameter = int(piece.radius * 2)
+        vertical_spacing = int(piece_diameter * 1.2)  # Space between stacked pieces vertically
+        horizontal_spacing = int(piece_diameter * 1.3) # Space between columns horizontally
+        side_margin = int(piece.radius * 3)            # Distance from screen edge for first column
+
+        target_x = 0
+        target_y = 0
+
+        capturing_player = PLAYER2 if piece.color == PLAYER1 else PLAYER1
 
         if capturing_player == PLAYER1:
-             # Captured by P1 -> display on left side (adjust x based on screen width)
-             capture_x = 50 + len(self.captured_pieces[PLAYER1]) * capture_spacing
-             piece.capture_target_pos = (capture_x, capture_area_y)
-             self.captured_pieces[PLAYER1].append(piece)
-        else: # Captured by P2 or Computer
-             # Captured by P2 -> display on right side (adjust x based on screen width)
-             capture_x = self.screen_width - 50 - len(self.captured_pieces[PLAYER2]) * capture_spacing
-             piece.capture_target_pos = (capture_x, capture_area_y)
-             self.captured_pieces[PLAYER2].append(piece)
+            # P1 captured a P2 piece -> Display on LEFT side
+            num_captured = len(self.captured_pieces[PLAYER1])
+            column_index = num_captured // MAX_PER_COLUMN  # 0, 1, or 2
+            position_in_column = num_captured % MAX_PER_COLUMN # 0 to 5
 
-        piece.is_captured = True # Ensure animation starts
+            # Ensure we don't exceed NUM_COLUMNS (though 16 captures max means index 2 is highest)
+            if column_index >= NUM_COLUMNS:
+                column_index = NUM_COLUMNS - 1
+                # Optional: stack further pieces in the last column beyond MAX_PER_COLUMN
+                # position_in_column = MAX_PER_COLUMN + (num_captured - NUM_COLUMNS * MAX_PER_COLUMN) -1 ?
+                # Simpler: Just stack in the last column beyond 6 if needed.
+                position_in_column = num_captured - (column_index * MAX_PER_COLUMN)
+
+
+            # Calculate X: Starts at margin, adds spacing for subsequent columns
+            target_x = side_margin + (column_index * horizontal_spacing)
+            # Calculate Y: Starts at margin, adds spacing for position in column
+            target_y = side_margin + (position_in_column * vertical_spacing)
+
+            piece.capture_target_pos = (target_x, target_y)
+            self.captured_pieces[PLAYER1].append(piece)
+
+        else: # Captured by P2 or Computer
+            # P2 captured a P1 piece -> Display on RIGHT side
+            num_captured = len(self.captured_pieces[PLAYER2])
+            column_index = num_captured // MAX_PER_COLUMN # 0, 1, or 2
+            position_in_column = num_captured % MAX_PER_COLUMN # 0 to 5
+
+            if column_index >= NUM_COLUMNS:
+                 column_index = NUM_COLUMNS - 1
+                 position_in_column = num_captured - (column_index * MAX_PER_COLUMN)
+
+
+            # Calculate X: Starts from right edge margin, subtracts spacing for subsequent columns
+            # Make sure columns move inwards (closer to board)
+            target_x = (self.screen_width - side_margin) - (column_index * horizontal_spacing)
+            # Calculate Y: Starts at margin, adds spacing for position in column
+            target_y = side_margin + (position_in_column * vertical_spacing)
+
+            piece.capture_target_pos = (target_x, target_y)
+            self.captured_pieces[PLAYER2].append(piece)
+
+        piece.is_captured = True
+        self.is_animating_move = True
 
 
     # --- State-Specific Drawing ---
@@ -557,8 +670,10 @@ class Game:
         for button in self.menu_buttons:
             button.draw(self.screen, self.theme)
 
-        # Dropdown (drawn on top if open)
-        self.start_game_dropdown.draw(self.screen, self.theme)
+        # Dropdown (drawn on top ONLY if open)
+        # FIX: Add explicit check for is_open before drawing
+        if self.start_game_dropdown.is_open:
+            self.start_game_dropdown.draw(self.screen, self.theme)
 
 
     def draw_options(self):
