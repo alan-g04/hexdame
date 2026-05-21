@@ -30,7 +30,7 @@ module.exports = function registerSocketHandlers(io) {
     socket.on('move', ({ roomCode, from, to }) => {
       const slot = rooms.getSlot(roomCode, socket.id);
       const room = rooms.getRoom(roomCode);
-      if (!room || !slot) return;
+      if (!room || !slot) { socket.emit('move-error', { reason: 'Room or slot not found' }); return; }
       if (room.gs.turn !== slot) { socket.emit('move-error', { reason: 'Not your turn' }); return; }
 
       const result = rooms.applyMove(roomCode, from[0], from[1], to[0], to[1]);
@@ -40,7 +40,10 @@ module.exports = function registerSocketHandlers(io) {
 
     socket.on('request-rematch', ({ roomCode }) => {
       const room = rooms.getRoom(roomCode);
-      if (!room || !room.players[PLAYER1] || !room.players[PLAYER2]) return;
+      if (!room || !room.players[PLAYER1] || !room.players[PLAYER2]) {
+        socket.emit('rematch-error', { reason: 'Cannot rematch: player(s) disconnected' });
+        return;
+      }
       rooms.resetGame(roomCode);
       io.to(roomCode).emit('game-start', {
         p1Name: room.players[PLAYER1].displayName,
