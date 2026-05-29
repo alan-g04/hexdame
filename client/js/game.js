@@ -109,6 +109,9 @@ class GameController {
       (this.gameMode === 'ai' && this.currentTurn === PLAYER1) ||
       this.gameMode === 'online';
     if (!human || this._aiPending) return;
+    if (this.gameMode === 'online' && this.currentTurn !== this.playerSlot) {
+      this._clearSelection(); return;
+    }
 
     const [q, r] = this.hexCanvas.getHexAt(px, py);
     if (!this.board.hasHex(q, r)) { this._clearSelection(); return; }
@@ -219,8 +222,8 @@ class GameController {
   _notifyTurn() {
     if (this._onTurnChange) this._onTurnChange(this.currentTurn, this.mustJump, this.gameMode);
     this._clearTimer();
-    if (this.gameMode === 'online' && this.currentTurn === this.playerSlot) {
-      this._timerExpiry = () => this._doForfeit();
+    if (this.gameMode === 'online') {
+      this._timerExpiry = this.currentTurn === this.playerSlot ? () => this._doForfeit() : null;
       this._startTimer(30);
     }
   }
