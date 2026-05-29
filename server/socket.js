@@ -1,5 +1,5 @@
 const { PLAYER1, PLAYER2 } = require('./game/hex');
-const { RoomManager } = require('./rooms');
+const { RoomManager, serializeState } = require('./rooms');
 
 const rooms = new RoomManager();
 
@@ -36,6 +36,14 @@ module.exports = function registerSocketHandlers(io) {
       const result = rooms.applyMove(roomCode, from[0], from[1], to[0], to[1]);
       if (!result.ok) { socket.emit('move-error', { reason: result.error }); return; }
       io.to(roomCode).emit('state-update', result.state);
+    });
+
+    socket.on('forfeit', ({ roomCode }) => {
+      const slot = rooms.getSlot(roomCode, socket.id);
+      const room = rooms.getRoom(roomCode);
+      if (!room || !slot || room.gs.winner) return;
+      room.gs.winner = slot === PLAYER1 ? PLAYER2 : PLAYER1;
+      io.to(roomCode).emit('state-update', serializeState(room.gs));
     });
 
     socket.on('request-rematch', ({ roomCode }) => {

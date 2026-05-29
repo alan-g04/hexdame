@@ -29,5 +29,6 @@ class SocketClient {
   createRoom(displayName) { this.socket.emit('create-room', { displayName }); }
   joinRoom(roomCode, displayName) { this.socket.emit('join-room', { roomCode, displayName }); }
   sendMove(from, to) { this.socket.emit('move', { roomCode: this.roomCode, from, to }); }
+  sendForfeit() { this.socket.emit('forfeit', { roomCode: this.roomCode }); }
   requestRematch() { this.socket.emit('request-rematch', { roomCode: this.roomCode }); }
 }

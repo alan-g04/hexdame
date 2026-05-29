@@ -20,6 +20,7 @@ class GameController {
     this._onTimerTick = null;
     this._timerInterval = null;
     this._timerSeconds = null;
+    this._timerExpiry = null;
     this.aiDepth = 1;
     this._loopRunning = false;
     this._pendingGameOver = null;
@@ -104,7 +105,9 @@ class GameController {
 
   handleClick(px, py) {
     if (this.phase !== 'playing' || this.anim.isAnimating() || this._pendingGameOver) return;
-    const human = this.gameMode === 'local' || (this.gameMode === 'ai' && this.currentTurn === PLAYER1);
+    const human = this.gameMode === 'local' ||
+      (this.gameMode === 'ai' && this.currentTurn === PLAYER1) ||
+      this.gameMode === 'online';
     if (!human || this._aiPending) return;
 
     const [q, r] = this.hexCanvas.getHexAt(px, py);
@@ -216,9 +219,13 @@ class GameController {
   _notifyTurn() {
     if (this._onTurnChange) this._onTurnChange(this.currentTurn, this.mustJump, this.gameMode);
     this._clearTimer();
-    const humanTurn = this.gameMode === 'local' ||
-      (this.gameMode === 'ai' && this.currentTurn === PLAYER1);
-    if (humanTurn) this._startTimer(30);
+    if (this.gameMode === 'ai' && this.currentTurn === PLAYER1) {
+      this._timerExpiry = () => this._doRandomMove();
+      this._startTimer(30);
+    } else if (this.gameMode === 'online' && this.currentTurn === this.playerSlot) {
+      this._timerExpiry = () => this._doForfeit();
+      this._startTimer(30);
+    }
   }
 
   _startTimer(seconds) {
@@ -229,7 +236,7 @@ class GameController {
       if (this._onTimerTick) this._onTimerTick(this._timerSeconds);
       if (this._timerSeconds <= 0) {
         this._clearTimer();
-        this._doRandomMove();
+        if (this._timerExpiry) this._timerExpiry();
       }
     }, 1000);
   }
@@ -238,6 +245,10 @@ class GameController {
     if (this._timerInterval) { clearInterval(this._timerInterval); this._timerInterval = null; }
     this._timerSeconds = null;
     if (this._onTimerTick) this._onTimerTick(null);
+  }
+
+  _doForfeit() {
+    if (this.socketClient) this.socketClient.sendForfeit();
   }
 
   _doRandomMove() {

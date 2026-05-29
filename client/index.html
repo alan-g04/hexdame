@@ -74,7 +74,7 @@
 
     <!-- Game Over -->
     <div id="game-over-screen" class="game-over-panel hidden">
-      <h2>GAME OVER</h2>
+      <h2 id="game-over-title">GAME OVER</h2>
       <p id="winner-text"></p>
       <button class="btn hidden" id="btn-rematch">REMATCH</button>
       <button class="btn" id="btn-menu">MAIN MENU</button>
@@ -123,11 +123,15 @@
 
     let _turnText = '';
 
+    const gameOverTitle = document.getElementById('game-over-title');
+
     gc._onGameOver = (winner) => {
       pauseBtn.classList.add('hidden');
       pauseOverlay.classList.add('hidden');
       turnIndicator.classList.add('hidden');
       timerDisplay.classList.add('hidden');
+      gameOverTitle.textContent = 'GAME OVER';
+      gameOverTitle.style.color = '';
       if (gc.gameMode === 'local')       winnerText.textContent = winner === PLAYER1 ? 'PLAYER 1 WINS' : 'PLAYER 2 WINS';
       else if (gc.gameMode === 'ai')     winnerText.textContent = winner === PLAYER1 ? 'YOU WIN!' : 'COMPUTER WINS';
       else if (gc.gameMode === 'online') winnerText.textContent = winner === gc.playerSlot ? 'YOU WIN!' : 'OPPONENT WINS';
@@ -216,7 +220,14 @@
     sc.onStateUpdate = (state) => { gc.handleServerState(state); };
 
     sc.onOpponentDisconnected = () => {
-      winnerText.textContent = 'OPPONENT DISCONNECTED';
+      pauseBtn.classList.add('hidden');
+      pauseOverlay.classList.add('hidden');
+      turnIndicator.classList.add('hidden');
+      timerDisplay.classList.add('hidden');
+      gc._clearTimer();
+      gameOverTitle.textContent = 'YOU WIN!';
+      gameOverTitle.style.color = '#44cc88';
+      winnerText.textContent = 'Opponent disconnected';
       document.getElementById('btn-rematch').classList.add('hidden');
       gameOverScreen.classList.remove('hidden');
       overlay.classList.add('active');
@@ -245,10 +256,12 @@
 
     document.getElementById('btn-resume').addEventListener('click', () => {
       pauseOverlay.classList.add('hidden');
-      const humanTurn = gc.phase === 'playing' && (
-        gc.gameMode === 'local' || (gc.gameMode === 'ai' && gc.currentTurn === PLAYER1)
-      );
-      if (humanTurn) gc._startTimer(30);
+      if (gc.phase === 'playing') {
+        const timedTurn =
+          (gc.gameMode === 'ai' && gc.currentTurn === PLAYER1) ||
+          (gc.gameMode === 'online' && gc.currentTurn === gc.playerSlot);
+        if (timedTurn) gc._startTimer(30);
+      }
     });
 
     document.getElementById('btn-pause-menu').addEventListener('click', showMenu);
