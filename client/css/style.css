@@ -75,6 +75,19 @@ body {
   pointer-events: none;
 }
 
+.timer-display {
+  position: absolute;
+  top: 34px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 1.1rem;
+  font-weight: bold;
+  letter-spacing: 0.05em;
+  color: #aaaaff;
+  pointer-events: none;
+  transition: color 0.3s;
+}
+
 .game-over-panel {
   background: rgba(10, 10, 25, 0.95);
   border: 1px solid #8888cc;
@@ -91,3 +104,46 @@ body {
 .game-over-panel p  { font-size: 1.2rem; color: #ccccff; margin-bottom: 8px; }
 
 .hidden { display: none !important; }
+
+.rules-panel {
+  background: rgba(20, 20, 40, 0.92);
+  border: 1px solid #4a4a8a;
+  border-radius: 8px;
+  padding: 40px 60px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 320px;
+  max-width: 520px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.rules-panel h1 {
+  font-size: 2rem;
+  letter-spacing: 0.15em;
+  color: #aaaaff;
+  margin-bottom: 8px;
+  align-self: center;
+}
+
+.rules-panel h2 {
+  font-size: 1rem;
+  letter-spacing: 0.1em;
+  color: #8888cc;
+  margin-top: 8px;
+}
+
+.rules-panel p, .rules-panel li {
+  font-size: 0.85rem;
+  color: #ccccff;
+  line-height: 1.6;
+}
+
+.rules-panel ul {
+  padding-left: 1.2em;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}

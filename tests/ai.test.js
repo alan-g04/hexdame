@@ -28,7 +28,7 @@ describe('AIPlayer', () => {
     board.pieces.clear();
     board.pieces.set('0,0', { q:0, r:0, color:PLAYER1, isKing:false });
     board.pieces.set('0,-1', { q:0, r:-1, color:PLAYER2, isKing:false });
-    const { allMoves, mustJump } = logic.getAllPlayerMoves(PLAYER1);
+    const { allMoves, mustJump } = logic.getAllPlayerMoves(PLAYER2);
     if (mustJump) {
       const move = ai.findMove(allMoves, mustJump);
       const [fq, fr, tq, tr] = move;

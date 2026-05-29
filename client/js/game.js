@@ -17,6 +17,10 @@ class GameController {
     this.phase = 'menu';
     this._onGameOver = null;
     this._onTurnChange = null;
+    this._onTimerTick = null;
+    this._timerInterval = null;
+    this._timerSeconds = null;
+    this.aiDepth = 1;
     this._loopRunning = false;
     this._pendingGameOver = null;
     this.anim = new AnimationManager();
@@ -24,7 +28,8 @@ class GameController {
     window.addEventListener('resize', () => this._recomputeAnimTargets());
   }
 
-  startGame(mode) {
+  startGame(mode, aiDepth = 1) {
+    this.aiDepth = aiDepth;
     this.gameMode = mode;
     this.board = new Board(BOARD_SIDE_LENGTH);
     this.logic = new GameLogic(this.board);
@@ -38,6 +43,7 @@ class GameController {
     this.isMultiJumping = false;
     this._aiPending = false;
     this._pendingGameOver = null;
+    this._clearTimer();
     this.phase = 'setup';
     this.anim.initTileFall(this.board, this.hexCanvas.hexRadius, this.hexCanvas.cx, this.hexCanvas.cy);
     if (!this._loopRunning) {
@@ -63,6 +69,7 @@ class GameController {
     } else if (this.phase === 'playing') {
       this.anim.updatePlay();
       if (this._pendingGameOver && !this.anim.isAnimating()) {
+        this._clearTimer();
         this.phase = 'gameover';
         if (this._onGameOver) this._onGameOver(this._pendingGameOver);
       } else if (!this._pendingGameOver && this.gameMode === 'ai' && this.currentTurn === PLAYER2 && !this._aiPending && !this.anim.isAnimating()) {
@@ -86,7 +93,7 @@ class GameController {
   }
 
   _doAIMove() {
-    const ai = new AIPlayer(this.logic);
+    const ai = new AIPlayer(this.logic, this.aiDepth);
     const move = ai.findMove(this.allPlayerMoves, this.mustJump);
     if (!move) return;
     const [fq, fr, tq, tr] = move;
@@ -189,6 +196,7 @@ class GameController {
     this.currentTurn = this.currentTurn === PLAYER1 ? PLAYER2 : PLAYER1;
     this._calcMoves();
     if (!Object.keys(this.allPlayerMoves).length) {
+      this._clearTimer();
       this.winner = this.currentTurn === PLAYER1 ? PLAYER2 : PLAYER1;
       this.phase = 'gameover';
       if (this._onGameOver) this._onGameOver(this.winner);
@@ -204,7 +212,60 @@ class GameController {
   }
 
   _clearSelection() { this.selectedCoord = null; this.possibleMoves = []; }
-  _notifyTurn() { if (this._onTurnChange) this._onTurnChange(this.currentTurn, this.mustJump, this.gameMode); }
+
+  _notifyTurn() {
+    if (this._onTurnChange) this._onTurnChange(this.currentTurn, this.mustJump, this.gameMode);
+    this._clearTimer();
+    const humanTurn = this.gameMode === 'local' ||
+      (this.gameMode === 'ai' && this.currentTurn === PLAYER1);
+    if (humanTurn) this._startTimer(30);
+  }
+
+  _startTimer(seconds) {
+    this._timerSeconds = seconds;
+    if (this._onTimerTick) this._onTimerTick(this._timerSeconds);
+    this._timerInterval = setInterval(() => {
+      this._timerSeconds--;
+      if (this._onTimerTick) this._onTimerTick(this._timerSeconds);
+      if (this._timerSeconds <= 0) {
+        this._clearTimer();
+        this._doRandomMove();
+      }
+    }, 1000);
+  }
+
+  _clearTimer() {
+    if (this._timerInterval) { clearInterval(this._timerInterval); this._timerInterval = null; }
+    this._timerSeconds = null;
+    if (this._onTimerTick) this._onTimerTick(null);
+  }
+
+  _doRandomMove() {
+    if (this.phase !== 'playing' || this._pendingGameOver || this.anim.isAnimating()) return;
+    const rng = new AIPlayer(this.logic, 0);
+    if (this.isMultiJumping) {
+      const [sq, sr] = this.selectedCoord;
+      const piece = this.board.getPiece(sq, sr);
+      const move = rng.findNextMultiJump(piece);
+      if (!move) return;
+      const [fq, fr, tq, tr] = move;
+      const { valid, jumpedCoord } = this.logic.isMoveValid(piece, tq, tr, this.allPlayerMoves, this.mustJump);
+      if (valid) {
+        this._executeMove(fq, fr, tq, tr, jumpedCoord);
+        if (this.isMultiJumping) this._startTimer(10);
+      }
+      return;
+    }
+    const move = rng.findMove(this.allPlayerMoves, this.mustJump);
+    if (!move) return;
+    const [fq, fr, tq, tr] = move;
+    const piece = this.board.getPiece(fq, fr);
+    const { valid, jumpedCoord } = this.logic.isMoveValid(piece, tq, tr, this.allPlayerMoves, this.mustJump);
+    if (valid) {
+      this._executeMove(fq, fr, tq, tr, jumpedCoord);
+      if (this.isMultiJumping) this._startTimer(10);
+    }
+  }
 
   _recomputeAnimTargets() {
     if (!this.board || this.anim.phase === 'tiles' || this.anim.phase === 'pieces') return;
@@ -224,6 +285,7 @@ class GameController {
 
 GameController.prototype.startOnlineGame = function(slot, socketClient) {
   this.gameMode = 'online';
+  this.aiDepth = 0;
   this.playerSlot = slot;
   this.socketClient = socketClient;
   this.board = new Board(BOARD_SIDE_LENGTH);
@@ -238,6 +300,7 @@ GameController.prototype.startOnlineGame = function(slot, socketClient) {
   this.isMultiJumping = false;
   this._aiPending = false;
   this._pendingGameOver = null;
+  this._clearTimer();
   this.phase = 'setup';
   this.anim.initTileFall(this.board, this.hexCanvas.hexRadius, this.hexCanvas.cx, this.hexCanvas.cy);
   if (!this._loopRunning) {
