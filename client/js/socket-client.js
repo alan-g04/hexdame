@@ -30,5 +30,12 @@ class SocketClient {
   joinRoom(roomCode, displayName) { this.socket.emit('join-room', { roomCode, displayName }); }
   sendMove(from, to) { this.socket.emit('move', { roomCode: this.roomCode, from, to }); }
   sendForfeit() { this.socket.emit('forfeit', { roomCode: this.roomCode }); }
+
+  leaveGame() {
+    if (!this.socket || !this.roomCode) return;
+    this.socket.emit('leave-game', { roomCode: this.roomCode });
+    this.roomCode = null;
+    this.playerSlot = null;
+  }
   requestRematch() { this.socket.emit('request-rematch', { roomCode: this.roomCode }); }
 }

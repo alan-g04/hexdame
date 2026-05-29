@@ -163,6 +163,8 @@
     };
 
     function showMenu() {
+      sc.leaveGame();
+      gc._clearTimer();
       menuScreen.classList.remove('hidden');
       onlineScreen.classList.add('hidden');
       gameOverScreen.classList.add('hidden');
@@ -171,7 +173,6 @@
       pauseOverlay.classList.add('hidden');
       overlay.classList.add('active');
       pauseBtn.classList.add('hidden');
-      gc._clearTimer();
     }
     function hideMenu()         { menuScreen.classList.add('hidden'); overlay.classList.remove('active'); }
     function showOnline()       { menuScreen.classList.add('hidden'); onlineScreen.classList.remove('hidden'); }
@@ -256,11 +257,8 @@
 
     document.getElementById('btn-resume').addEventListener('click', () => {
       pauseOverlay.classList.add('hidden');
-      if (gc.phase === 'playing') {
-        const timedTurn =
-          (gc.gameMode === 'ai' && gc.currentTurn === PLAYER1) ||
-          (gc.gameMode === 'online' && gc.currentTurn === gc.playerSlot);
-        if (timedTurn) gc._startTimer(30);
+      if (gc.phase === 'playing' && gc.gameMode === 'online' && gc.currentTurn === gc.playerSlot) {
+        gc._startTimer(30);
       }
     });
 

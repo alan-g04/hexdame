@@ -219,10 +219,7 @@ class GameController {
   _notifyTurn() {
     if (this._onTurnChange) this._onTurnChange(this.currentTurn, this.mustJump, this.gameMode);
     this._clearTimer();
-    if (this.gameMode === 'ai' && this.currentTurn === PLAYER1) {
-      this._timerExpiry = () => this._doRandomMove();
-      this._startTimer(30);
-    } else if (this.gameMode === 'online' && this.currentTurn === this.playerSlot) {
+    if (this.gameMode === 'online' && this.currentTurn === this.playerSlot) {
       this._timerExpiry = () => this._doForfeit();
       this._startTimer(30);
     }
@@ -340,5 +337,5 @@ GameController.prototype.handleServerState = function(state) {
   const { allMoves } = this.logic.getAllPlayerMoves(this.currentTurn);
   this.allPlayerMoves = allMoves;
   this.mustJump = state.mustJump;
-  if (this._onTurnChange) this._onTurnChange(this.currentTurn, state.mustJump, 'online');
+  this._notifyTurn();
 };

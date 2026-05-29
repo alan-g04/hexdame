@@ -38,6 +38,12 @@ module.exports = function registerSocketHandlers(io) {
       io.to(roomCode).emit('state-update', result.state);
     });
 
+    socket.on('leave-game', ({ roomCode }) => {
+      socket.leave(roomCode);
+      const info = rooms.leaveRoom(roomCode, socket.id);
+      if (info) io.to(roomCode).emit('opponent-disconnected');
+    });
+
     socket.on('forfeit', ({ roomCode }) => {
       const slot = rooms.getSlot(roomCode, socket.id);
       const room = rooms.getRoom(roomCode);

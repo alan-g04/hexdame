@@ -112,6 +112,19 @@ class RoomManager {
     room.gs = createGameState();
   }
 
+  leaveRoom(code, socketId) {
+    const room = this.rooms.get(code);
+    if (!room) return null;
+    for (const slot of [PLAYER1, PLAYER2]) {
+      if (room.players[slot]?.socketId === socketId) {
+        room.players[slot] = null;
+        if (!room.players[PLAYER1] && !room.players[PLAYER2]) this.rooms.delete(code);
+        return { code, slot };
+      }
+    }
+    return null;
+  }
+
   removePlayer(socketId) {
     for (const [code, room] of this.rooms) {
       for (const slot of [PLAYER1, PLAYER2]) {
