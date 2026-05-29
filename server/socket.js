@@ -53,6 +53,18 @@ module.exports = function registerSocketHandlers(io) {
     });
 
     socket.on('request-rematch', ({ roomCode }) => {
+      const slot = rooms.getSlot(roomCode, socket.id);
+      const room = rooms.getRoom(roomCode);
+      if (!room || !slot) { socket.emit('rematch-error', { reason: 'Room not found' }); return; }
+      const opponentSlot = slot === PLAYER1 ? PLAYER2 : PLAYER1;
+      if (!room.players[opponentSlot]) {
+        socket.emit('rematch-error', { reason: 'Opponent has left' });
+        return;
+      }
+      io.to(room.players[opponentSlot].socketId).emit('rematch-request');
+    });
+
+    socket.on('accept-rematch', ({ roomCode }) => {
       const room = rooms.getRoom(roomCode);
       if (!room || !room.players[PLAYER1] || !room.players[PLAYER2]) {
         socket.emit('rematch-error', { reason: 'Cannot rematch: player(s) disconnected' });
@@ -63,6 +75,16 @@ module.exports = function registerSocketHandlers(io) {
         p1Name: room.players[PLAYER1].displayName,
         p2Name: room.players[PLAYER2].displayName
       });
+    });
+
+    socket.on('decline-rematch', ({ roomCode }) => {
+      const slot = rooms.getSlot(roomCode, socket.id);
+      const room = rooms.getRoom(roomCode);
+      if (!room || !slot) return;
+      const requesterSlot = slot === PLAYER1 ? PLAYER2 : PLAYER1;
+      if (room.players[requesterSlot]) {
+        io.to(room.players[requesterSlot].socketId).emit('rematch-declined');
+      }
     });
 
     socket.on('disconnect', () => {

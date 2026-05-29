@@ -86,6 +86,18 @@
 
   <button id="btn-pause" class="pause-btn hidden">&#9776;</button>
 
+  <!-- Rematch request popup (bottom-right) -->
+  <div id="rematch-popup" class="rematch-popup hidden">
+    <p>REMATCH?</p>
+    <div style="display:flex;gap:8px">
+      <button class="btn" id="btn-accept-rematch">ACCEPT</button>
+      <button class="btn" id="btn-decline-rematch">DECLINE</button>
+    </div>
+  </div>
+
+  <!-- Toast notification stack (center) -->
+  <div id="toast-container" class="toast-container"></div>
+
   <div id="pause-overlay" class="pause-overlay hidden">
     <div class="menu-panel">
       <h1>PAUSED</h1>
@@ -117,6 +129,19 @@
     const difficultyScreen = document.getElementById('difficulty-screen');
     const pauseBtn = document.getElementById('btn-pause');
     const pauseOverlay = document.getElementById('pause-overlay');
+    const rematchPopup = document.getElementById('rematch-popup');
+    const toastContainer = document.getElementById('toast-container');
+
+    let rematchTimeout = null;
+
+    function showToast(msg) {
+      const el = document.createElement('div');
+      el.className = 'toast';
+      el.textContent = msg;
+      toastContainer.appendChild(el);
+      setTimeout(() => el.classList.add('toast-fade'), 2500);
+      setTimeout(() => el.remove(), 3000);
+    }
 
     const gc = new GameController(canvas);
     const sc = new SocketClient();
@@ -163,6 +188,8 @@
     };
 
     function showMenu() {
+      clearTimeout(rematchTimeout);
+      rematchPopup.classList.add('hidden');
       sc.leaveGame();
       gc._clearTimer();
       menuScreen.classList.remove('hidden');
@@ -212,7 +239,10 @@
     };
 
     sc.onGameStart = () => {
+      clearTimeout(rematchTimeout);
+      rematchPopup.classList.add('hidden');
       onlineScreen.classList.add('hidden');
+      gameOverScreen.classList.add('hidden');
       overlay.classList.remove('active');
       pauseBtn.classList.remove('hidden');
       gc.startOnlineGame(sc.playerSlot, sc);
@@ -238,15 +268,42 @@
     sc.onMoveError = ({ reason }) => { console.warn('Move error:', reason); };
 
     document.getElementById('btn-rematch').addEventListener('click', () => {
-      gameOverScreen.classList.add('hidden');
-      overlay.classList.remove('active');
       if (gc.gameMode === 'online') {
+        gameOverScreen.classList.add('hidden');
+        overlay.classList.remove('active');
         sc.requestRematch();
+        showToast('REMATCH REQUESTED...');
       } else {
+        gameOverScreen.classList.add('hidden');
+        overlay.classList.remove('active');
         pauseBtn.classList.remove('hidden');
         gc.startGame(gc.gameMode, gc.aiDepth);
       }
     });
+
+    document.getElementById('btn-accept-rematch').addEventListener('click', () => {
+      clearTimeout(rematchTimeout);
+      rematchPopup.classList.add('hidden');
+      sc.acceptRematch();
+    });
+
+    document.getElementById('btn-decline-rematch').addEventListener('click', () => {
+      clearTimeout(rematchTimeout);
+      rematchPopup.classList.add('hidden');
+      sc.declineRematch();
+    });
+
+    sc.onRematchRequest = () => {
+      rematchPopup.classList.remove('hidden');
+      clearTimeout(rematchTimeout);
+      rematchTimeout = setTimeout(() => {
+        rematchPopup.classList.add('hidden');
+        sc.declineRematch();
+      }, 30000);
+    };
+
+    sc.onRematchDeclined = () => { showToast('REMATCH DECLINED'); };
+    sc.onRematchError = ({ reason }) => { showToast(reason.toUpperCase()); };
 
     document.getElementById('btn-menu').addEventListener('click', showMenu);
 

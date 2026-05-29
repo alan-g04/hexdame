@@ -88,6 +88,57 @@ body {
   transition: color 0.3s;
 }
 
+.rematch-popup {
+  position: absolute;
+  bottom: 24px;
+  right: 24px;
+  background: rgba(20, 20, 40, 0.97);
+  border: 1px solid #5555aa;
+  border-radius: 8px;
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  z-index: 30;
+}
+
+.rematch-popup p {
+  font-size: 0.9rem;
+  letter-spacing: 0.12em;
+  color: #aaaaff;
+  margin: 0;
+}
+
+.rematch-popup .btn { padding: 8px 16px; font-size: 0.85rem; }
+
+.toast-container {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  pointer-events: none;
+  z-index: 25;
+}
+
+.toast {
+  background: rgba(20, 20, 40, 0.95);
+  border: 1px solid #5555aa;
+  border-radius: 6px;
+  padding: 12px 28px;
+  color: #aaaaff;
+  font-size: 0.85rem;
+  letter-spacing: 0.1em;
+  opacity: 1;
+  transition: opacity 0.5s;
+}
+
+.toast-fade { opacity: 0; }
+
 .pause-btn {
   position: absolute;
   top: 12px;
