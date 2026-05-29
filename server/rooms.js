@@ -117,9 +117,10 @@ class RoomManager {
     if (!room) return null;
     for (const slot of [PLAYER1, PLAYER2]) {
       if (room.players[slot]?.socketId === socketId) {
+        const hadActiveGame = !room.gs.winner && room.mode === 'playing';
         room.players[slot] = null;
         if (!room.players[PLAYER1] && !room.players[PLAYER2]) this.rooms.delete(code);
-        return { code, slot };
+        return { code, slot, hadActiveGame };
       }
     }
     return null;
@@ -129,9 +130,10 @@ class RoomManager {
     for (const [code, room] of this.rooms) {
       for (const slot of [PLAYER1, PLAYER2]) {
         if (room.players[slot]?.socketId === socketId) {
+          const hadActiveGame = !room.gs.winner && room.mode === 'playing';
           room.players[slot] = null;
           if (!room.players[PLAYER1] && !room.players[PLAYER2]) this.rooms.delete(code);
-          return { code, slot };
+          return { code, slot, hadActiveGame };
         }
       }
     }

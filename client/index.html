@@ -88,7 +88,7 @@
 
   <!-- Rematch request popup (bottom-right) -->
   <div id="rematch-popup" class="rematch-popup hidden">
-    <p>REMATCH?</p>
+    <p id="rematch-popup-text">REMATCH?</p>
     <div style="display:flex;gap:8px">
       <button class="btn" id="btn-accept-rematch">ACCEPT</button>
       <button class="btn" id="btn-decline-rematch">DECLINE</button>
@@ -133,6 +133,7 @@
     const toastContainer = document.getElementById('toast-container');
 
     let rematchTimeout = null;
+    let _opponentName = 'Opponent';
 
     function showToast(msg) {
       const el = document.createElement('div');
@@ -159,7 +160,7 @@
       gameOverTitle.style.color = '';
       if (gc.gameMode === 'local')       winnerText.textContent = winner === PLAYER1 ? 'PLAYER 1 WINS' : 'PLAYER 2 WINS';
       else if (gc.gameMode === 'ai')     winnerText.textContent = winner === PLAYER1 ? 'YOU WIN!' : 'COMPUTER WINS';
-      else if (gc.gameMode === 'online') winnerText.textContent = winner === gc.playerSlot ? 'YOU WIN!' : 'OPPONENT WINS';
+      else if (gc.gameMode === 'online') winnerText.textContent = winner === gc.playerSlot ? 'YOU WIN!' : `${_opponentName} WINS`;
       document.getElementById('btn-rematch').classList.remove('hidden');
       gameOverScreen.classList.remove('hidden');
       overlay.classList.add('active');
@@ -219,14 +220,16 @@
     document.getElementById('btn-back-rules').addEventListener('click', showMenu);
 
     document.getElementById('btn-create').addEventListener('click', () => {
-      const name = document.getElementById('input-name').value.trim() || 'Player';
+      const name = document.getElementById('input-name').value.trim();
+      if (!name) { lobbyStatus.textContent = 'Enter your name first.'; return; }
       lobbyStatus.textContent = 'Creating room...';
       sc.createRoom(name);
     });
 
     document.getElementById('btn-join').addEventListener('click', () => {
       const code = document.getElementById('input-code').value.trim().toUpperCase();
-      const name = document.getElementById('input-name').value.trim() || 'Player';
+      const name = document.getElementById('input-name').value.trim();
+      if (!name) { lobbyStatus.textContent = 'Enter your name first.'; return; }
       if (!code) { lobbyStatus.textContent = 'Enter a room code.'; return; }
       sc.joinRoom(code, name);
     });
@@ -238,13 +241,14 @@
       lobbyStatus.textContent = msg;
     };
 
-    sc.onGameStart = () => {
+    sc.onGameStart = (d) => {
       clearTimeout(rematchTimeout);
       rematchPopup.classList.add('hidden');
       onlineScreen.classList.add('hidden');
       gameOverScreen.classList.add('hidden');
       overlay.classList.remove('active');
       pauseBtn.classList.remove('hidden');
+      _opponentName = sc.playerSlot === PLAYER1 ? (d.p2Name || 'Opponent') : (d.p1Name || 'Opponent');
       gc.startOnlineGame(sc.playerSlot, sc);
     };
 
@@ -258,7 +262,7 @@
       gc._clearTimer();
       gameOverTitle.textContent = 'YOU WIN!';
       gameOverTitle.style.color = '#44cc88';
-      winnerText.textContent = 'Opponent disconnected';
+      winnerText.textContent = `${_opponentName} disconnected`;
       document.getElementById('btn-rematch').classList.add('hidden');
       gameOverScreen.classList.remove('hidden');
       overlay.classList.add('active');
@@ -293,7 +297,9 @@
       sc.declineRematch();
     });
 
-    sc.onRematchRequest = () => {
+    sc.onRematchRequest = ({ requesterName } = {}) => {
+      document.getElementById('rematch-popup-text').textContent =
+        requesterName ? `REMATCH FROM ${requesterName.toUpperCase()}?` : 'REMATCH?';
       rematchPopup.classList.remove('hidden');
       clearTimeout(rematchTimeout);
       rematchTimeout = setTimeout(() => {
@@ -302,8 +308,8 @@
       }, 30000);
     };
 
-    sc.onRematchDeclined = () => { showToast('REMATCH DECLINED'); };
-    sc.onRematchError = ({ reason }) => { showToast(reason.toUpperCase()); };
+    sc.onRematchDeclined = () => { showToast('REMATCH DECLINED'); showMenu(); };
+    sc.onRematchError = ({ reason }) => { rematchPopup.classList.add('hidden'); showToast(reason.toUpperCase()); showMenu(); };
 
     document.getElementById('btn-menu').addEventListener('click', showMenu);
 

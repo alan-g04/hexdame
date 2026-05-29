@@ -41,7 +41,7 @@ module.exports = function registerSocketHandlers(io) {
     socket.on('leave-game', ({ roomCode }) => {
       socket.leave(roomCode);
       const info = rooms.leaveRoom(roomCode, socket.id);
-      if (info) io.to(roomCode).emit('opponent-disconnected');
+      if (info && info.hadActiveGame) io.to(roomCode).emit('opponent-disconnected');
     });
 
     socket.on('forfeit', ({ roomCode }) => {
@@ -61,7 +61,8 @@ module.exports = function registerSocketHandlers(io) {
         socket.emit('rematch-error', { reason: 'Opponent has left' });
         return;
       }
-      io.to(room.players[opponentSlot].socketId).emit('rematch-request');
+      const requesterName = room.players[slot].displayName;
+      io.to(room.players[opponentSlot].socketId).emit('rematch-request', { requesterName });
     });
 
     socket.on('accept-rematch', ({ roomCode }) => {
@@ -89,7 +90,7 @@ module.exports = function registerSocketHandlers(io) {
 
     socket.on('disconnect', () => {
       const info = rooms.removePlayer(socket.id);
-      if (info) io.to(info.code).emit('opponent-disconnected');
+      if (info && info.hadActiveGame) io.to(info.code).emit('opponent-disconnected');
     });
   });
 };

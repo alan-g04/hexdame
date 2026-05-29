@@ -23,7 +23,7 @@ class SocketClient {
     this.socket.on('opponent-disconnected',  ()  => { if (this.onOpponentDisconnected) this.onOpponentDisconnected(); });
     this.socket.on('join-error',             (d) => { if (this.onJoinError) this.onJoinError(d); });
     this.socket.on('move-error',             (d) => { if (this.onMoveError) this.onMoveError(d); });
-    this.socket.on('rematch-request',        ()  => { if (this.onRematchRequest) this.onRematchRequest(); });
+    this.socket.on('rematch-request',        (d) => { if (this.onRematchRequest) this.onRematchRequest(d); });
     this.socket.on('rematch-declined',       ()  => { if (this.onRematchDeclined) this.onRematchDeclined(); });
     this.socket.on('rematch-error',          (d) => { if (this.onRematchError) this.onRematchError(d); });
   }
