@@ -84,6 +84,16 @@
   <div class="turn-indicator hidden" id="turn-indicator"></div>
   <div class="timer-display hidden" id="timer-display"></div>
 
+  <button id="btn-pause" class="pause-btn hidden">&#9776;</button>
+
+  <div id="pause-overlay" class="pause-overlay hidden">
+    <div class="menu-panel">
+      <h1>PAUSED</h1>
+      <button class="btn" id="btn-resume">RESUME</button>
+      <button class="btn" id="btn-pause-menu">MAIN MENU</button>
+    </div>
+  </div>
+
   <script src="/socket.io/socket.io.js"></script>
   <script src="js/hex.js"></script>
   <script src="js/board.js"></script>
@@ -105,6 +115,8 @@
     const lobbyStatus = document.getElementById('lobby-status');
     const rulesScreen = document.getElementById('rules-screen');
     const difficultyScreen = document.getElementById('difficulty-screen');
+    const pauseBtn = document.getElementById('btn-pause');
+    const pauseOverlay = document.getElementById('pause-overlay');
 
     const gc = new GameController(canvas);
     const sc = new SocketClient();
@@ -112,6 +124,8 @@
     let _turnText = '';
 
     gc._onGameOver = (winner) => {
+      pauseBtn.classList.add('hidden');
+      pauseOverlay.classList.add('hidden');
       turnIndicator.classList.add('hidden');
       timerDisplay.classList.add('hidden');
       if (gc.gameMode === 'local')       winnerText.textContent = winner === PLAYER1 ? 'PLAYER 1 WINS' : 'PLAYER 2 WINS';
@@ -150,16 +164,18 @@
       gameOverScreen.classList.add('hidden');
       rulesScreen.classList.add('hidden');
       difficultyScreen.classList.add('hidden');
+      pauseOverlay.classList.add('hidden');
       overlay.classList.add('active');
+      pauseBtn.classList.add('hidden');
       gc._clearTimer();
     }
     function hideMenu()         { menuScreen.classList.add('hidden'); overlay.classList.remove('active'); }
     function showOnline()       { menuScreen.classList.add('hidden'); onlineScreen.classList.remove('hidden'); }
     function showRules()        { menuScreen.classList.add('hidden'); rulesScreen.classList.remove('hidden'); }
     function showDifficulty()   { menuScreen.classList.add('hidden'); difficultyScreen.classList.remove('hidden'); }
-    function hideDifficulty()   { difficultyScreen.classList.add('hidden'); overlay.classList.remove('active'); }
+    function hideDifficulty()   { difficultyScreen.classList.add('hidden'); overlay.classList.remove('active'); pauseBtn.classList.remove('hidden'); }
 
-    document.getElementById('btn-local').addEventListener('click', () => { hideMenu(); gc.startGame('local'); });
+    document.getElementById('btn-local').addEventListener('click', () => { hideMenu(); pauseBtn.classList.remove('hidden'); gc.startGame('local'); });
     document.getElementById('btn-ai').addEventListener('click', showDifficulty);
     document.getElementById('btn-easy').addEventListener('click',   () => { hideDifficulty(); gc.startGame('ai', 1); });
     document.getElementById('btn-medium').addEventListener('click', () => { hideDifficulty(); gc.startGame('ai', 3); });
@@ -193,6 +209,7 @@
     sc.onGameStart = () => {
       onlineScreen.classList.add('hidden');
       overlay.classList.remove('active');
+      pauseBtn.classList.remove('hidden');
       gc.startOnlineGame(sc.playerSlot, sc);
     };
 
@@ -214,11 +231,27 @@
       if (gc.gameMode === 'online') {
         sc.requestRematch();
       } else {
+        pauseBtn.classList.remove('hidden');
         gc.startGame(gc.gameMode, gc.aiDepth);
       }
     });
 
     document.getElementById('btn-menu').addEventListener('click', showMenu);
+
+    pauseBtn.addEventListener('click', () => {
+      pauseOverlay.classList.remove('hidden');
+      gc._clearTimer();
+    });
+
+    document.getElementById('btn-resume').addEventListener('click', () => {
+      pauseOverlay.classList.add('hidden');
+      const humanTurn = gc.phase === 'playing' && (
+        gc.gameMode === 'local' || (gc.gameMode === 'ai' && gc.currentTurn === PLAYER1)
+      );
+      if (humanTurn) gc._startTimer(30);
+    });
+
+    document.getElementById('btn-pause-menu').addEventListener('click', showMenu);
 
     canvas.addEventListener('click', (e) => {
       const r = canvas.getBoundingClientRect();
